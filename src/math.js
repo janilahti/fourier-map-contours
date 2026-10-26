@@ -116,3 +116,46 @@ export function fitContour(points, width, height, separate = false) {
     ],
   };
 }
+
+// Conservative envelope of the first displayed circle and the ±1-frequency
+// circles, including all preceding vectors, valid for every animation phase.
+export function firstCircleExtent(terms) {
+  let reach = 0,
+    extent = 0;
+  terms.forEach((term, index) => {
+    reach += term.amplitude;
+    if (index === 0 || Math.abs(term.frequency) === 1) extent = reach;
+  });
+  return extent;
+}
+export function fitDrawing(points, width, height, separate, series) {
+  const bounds = points.slice();
+  const addCircle = (center, radius) =>
+    bounds.push(
+      [center[0] - radius, center[1] - radius],
+      [center[0] + radius, center[1] + radius],
+    );
+  let xSource = [0, 0],
+    ySource = [0, 0];
+  if (separate) {
+    const rx = firstCircleExtent(series.x),
+      ry = firstCircleExtent(series.y);
+    // Place source circles against the contour bounds; overlap is intentional.
+    xSource = [
+      0,
+      Math.min(0, Math.min(...points.map((p) => p[1])) + rx * 0.25),
+    ];
+    ySource = [
+      Math.min(0, Math.min(...points.map((p) => p[0])) + ry * 0.25),
+      0,
+    ];
+    addCircle(xSource, rx);
+    addCircle(ySource, ry);
+  } else addCircle([0, 0], firstCircleExtent(series.c));
+  const fit = fitContour(bounds, width, height);
+  const project = (p) => [
+    fit.origin[0] + p[0] * fit.scale,
+    fit.origin[1] + p[1] * fit.scale,
+  ];
+  return { ...fit, xSource: project(xSource), ySource: project(ySource) };
+}

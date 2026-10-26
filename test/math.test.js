@@ -157,3 +157,55 @@ test("contour fills the separate-mode canvas without clipping its reference outl
     }
   }
 });
+
+test("first and ±1-frequency circles fit fully at every phase on desktop and mobile", async () => {
+  const { fitDrawing } = await import("../src/math.js");
+  const data = JSON.parse(
+    readFileSync(new URL("../public/data/countries.geojson", import.meta.url)),
+  );
+  for (const id of ["FIN", "JPN", "USA", "CHL", "RUS", "UKR"]) {
+    const feature = data.features.find((f) => f.properties.id === id);
+    const points = resample(mainRing(feature.geometry), 128);
+    const series = {
+      c: transform(points),
+      x: transform(points.map((p) => [p[0], 0])),
+      y: transform(points.map((p) => [p[1], 0])),
+    };
+    for (const [w, h] of [
+      [900, 650],
+      [350, 310],
+    ])
+      for (const separate of [false, true]) {
+        const fit = fitDrawing(points, w, h, separate, series);
+        const chains = separate
+          ? [
+              [series.x, fit.xSource, 0],
+              [series.y, fit.ySource, Math.PI / 2],
+            ]
+          : [[series.c, fit.origin, 0]];
+        for (const [terms, start, rotation] of chains)
+          for (let phase = 0; phase < 1; phase += 0.071) {
+            let center = [...start];
+            terms.forEach((term, i) => {
+              const radius = term.amplitude * fit.scale;
+              if (i === 0 || Math.abs(term.frequency) === 1) {
+                assert.ok(
+                  center[0] - radius >= -1e-8 &&
+                    center[0] + radius <= w + 1e-8 &&
+                    center[1] - radius >= -1e-8 &&
+                    center[1] + radius <= h + 1e-8,
+                  `${id} ${separate ? "separate" : "complex"} circle ${i}`,
+                );
+              }
+              const angle = TAU * term.frequency * phase + rotation;
+              center[0] +=
+                (term.re * Math.cos(angle) - term.im * Math.sin(angle)) *
+                fit.scale;
+              center[1] +=
+                (term.re * Math.sin(angle) + term.im * Math.cos(angle)) *
+                fit.scale;
+            });
+          }
+      }
+  }
+});

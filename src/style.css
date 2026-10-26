@@ -11,45 +11,15 @@
 body {
   margin: 0;
 }
-header,
 main,
 footer {
   max-width: 1440px;
   margin: auto;
 }
-header {
-  height: 94px;
-  padding: 0 5%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-}
-.brand {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  text-decoration: none;
-  color: inherit;
-  display: flex;
-  align-items: center;
-  gap: 13px;
-}
-.brand-icon {
-  font-size: 36px;
-  font-weight: 400;
-}
-.edition,
 .eyebrow {
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 1.8px;
-}
-.edition {
-  color: var(--muted);
-}
-.edition span {
-  margin-left: 36px;
 }
 main {
   padding: 0 5%;
@@ -193,7 +163,7 @@ button {
     sans-serif;
   cursor: pointer;
 }
-button:first-child {
+.actions button:first-child {
   background: var(--button);
   color: var(--button-text);
   border-color: var(--button);
@@ -529,7 +499,8 @@ a:focus-visible {
   max-height: 230px;
   overflow: auto;
   padding: 13px 16px;
-  background: var(--canvas);
+  background: color-mix(in srgb, var(--canvas) 45%, transparent);
+  text-shadow: 0 1px 3px var(--canvas);
   border: 1px solid var(--canvas-muted);
   border-radius: 4px;
   color: var(--canvas-text);
@@ -598,5 +569,203 @@ a:focus-visible {
   }
   .math-panel output {
     font-size: 10px;
+  }
+}
+
+.intro {
+  display: block;
+  padding: 30px 0 28px;
+}
+.intro-kicker {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 1.6px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+.intro-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+.intro-body .lede {
+  margin: 0 25px 0 0;
+}
+.control-heading {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 8px;
+}
+.control-heading label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink);
+  font-weight: 500;
+}
+.control-heading output {
+  margin-left: auto;
+}
+.info-button {
+  flex: none;
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1;
+  background: transparent;
+  font-family: Georgia, serif;
+  font-style: italic;
+}
+.info-tip {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: 12px;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--field);
+  color: var(--ink);
+  box-shadow: 0 5px 18px #0002;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.info-tip[hidden] {
+  display: none;
+}
+.count-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.count-control button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  flex: none;
+  font-size: 18px;
+  background: var(--field);
+  color: var(--ink);
+}
+.count-control input {
+  min-width: 0;
+  flex: 1;
+}
+button:disabled {
+  cursor: default;
+}
+.growth-controls {
+  border-top: 1px solid var(--border);
+  margin-top: 18px;
+  padding-top: 14px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+.growth-controls label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink);
+  font-size: 11px;
+  margin: 0;
+}
+.growth-controls input[type="number"] {
+  width: 53px;
+  padding: 5px 3px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+}
+.growth-controls .hint {
+  grid-column: 1/-1;
+  margin: 0;
+}
+.math-panel.expanded {
+  background: color-mix(in srgb, var(--canvas) 95%, transparent);
+}
+:root[data-palette="high-visibility"] {
+  color-scheme: light;
+  --ink: #000;
+  --paper: #fff;
+  --border: #000;
+  --muted: #222;
+  --accent: #000;
+  --panel: #fff;
+  --field: #fff;
+  --button: #000;
+  --button-text: #fff;
+  --canvas: #000;
+  --canvas-text: #fff;
+  --canvas-muted: #fff;
+  --grid: rgba(255, 255, 255, 0.07);
+  --circle: #bdbdbd;
+  --vector: #fff;
+  --guide: #929292;
+  --trace: #ffff00;
+  --tip: #00ffff;
+  --highlight: #fff;
+  --crosshair: #00ffff;
+  --circle-width: 1.5;
+  --trace-width: 3;
+}
+:root[data-palette="high-visibility"] .math-panel {
+  background: color-mix(in srgb, #000 85%, transparent);
+}
+:root[data-palette="high-visibility"] .math-panel.expanded {
+  background: color-mix(in srgb, #000 97%, transparent);
+}
+:root[data-palette="high-visibility"] .repo-link {
+  opacity: 1;
+}
+:root[data-palette="high-visibility"]
+  :is(label, .hint, .toggles label, .growth-controls label, .notes p) {
+  font-size: 13px;
+}
+:root[data-palette="high-visibility"] :is(select, button) {
+  font-size: 13px;
+}
+@media (max-width: 580px) {
+  .intro {
+    padding: 22px 0 24px;
+  }
+  .intro-kicker {
+    gap: 8px;
+    font-size: 7px;
+    letter-spacing: 0.8px;
+    margin-bottom: 18px;
+    white-space: nowrap;
+  }
+  .intro-body {
+    align-items: flex-end;
+    gap: 12px;
+  }
+  .intro-body .lede {
+    margin: 0;
+    max-width: 125px;
+  }
+  .intro-body h1 {
+    font-size: 52px;
+  }
+  .growth-controls {
+    grid-template-columns: 1fr auto;
   }
 }

@@ -1,5 +1,7 @@
 # Border / Orbit
 
+[Try the interactive atlas →](https://janilahti.github.io/fourier-map-contours/)
+
 An interactive Fourier atlas, built with Canvas, JavaScript, and Vite. No API key or backend is needed. Country data is bundled locally.
 
 ## Develop
@@ -27,8 +29,11 @@ After changing the app, run `npm run build:pages` and commit the updated `docs/`
 - Components are sorted by amplitude, not frequency. Consequently a low circle count is a sparse approximation, not necessarily a conventional low-pass truncation.
 - Forward/reverse controls the direction of time along the outline. Individual circles rotate in either direction according to their signed frequency; forcing every circle clockwise would change the reconstructed shape.
 - Borders are unwrapped across the antimeridian and projected locally with an equirectangular projection scaled by cosine of the mean latitude. The largest projected-area outer ring is selected. Islands outside that region and interior holes are omitted. This intentionally draws one continuous closed contour, not a complete political map.
-- Each outline is sampled at 1,024 equal arc-length intervals before the discrete Fourier transform. The display supports 1–256 coefficients per chain. A cycle takes 20 seconds at 1×. The newest segment fades to the base trace colour over about 1.1 seconds at 1×; a completed outline remains visible on subsequent cycles. Changes to the country, representation, direction, or circle count restart the trace.
-- Five colour palettes (Botanical, Lagoon, Terracotta, Twilight, and Midnight) change the page and drawing together. The optional equations and live values panel shows the active Fourier formulas, normalized coordinates, time, and the largest eight coefficients per chain. Hide it to leave the canvas clear.
+- Each outline is sampled at 1,024 equal arc-length intervals before the discrete Fourier transform. The display supports 1–256 coefficients per chain. A cycle takes 20 seconds at 1×. The newest segment fades to the base trace colour over about 1.1 seconds at 1×; completed outlines remain fully visible for one more cycle, then fade over the next two. Highlight ages use a continuous clock, including across cycle boundaries. Changes to the country, representation, direction, or circle count restart the trace.
+- Six colour palettes (Botanical, Lagoon, Terracotta, Twilight, Midnight, and High visibility) change the page and drawing together. The optional equations and live values panel shows the active Fourier formulas, normalized coordinates, time, and the largest eight coefficients per chain. The panel is translucent until the coefficient tables are expanded. Hide it to leave the canvas clear. High visibility uses black/white UI, thicker circles, a yellow trace, and a cyan pen.
+- The epicycle slider supports large changes; the − and + buttons adjust the count by exactly one. Info buttons explain country selection, representations, and epicycles on hover, keyboard focus, or tap.
+- Enable **Build up epicycles** to restart with one coefficient and increase after each completed cycle: +1 up to 8, +2 up to 16, +4 up to 32, +8 up to 64, +16 up to 128, then +32 up to the selected limit (1–256). Playback continues at that limit. Manual count controls are disabled during growth. Old cycles remain visible while the new approximation develops, then fade away. Restart, country, representation, direction, or growth-limit changes restart the progression.
+- The drawing is fitted to both the outline and conservative envelopes of the first circle and the ±1-frequency circles, so these circles remain fully visible throughout a cycle. The two axis sources can overlap the outline in separate mode. The fit stays fixed as the coefficient count grows.
 - Playback begins paused when the browser requests reduced motion. All controls are keyboard accessible.
 
 ## Map data and attribution
