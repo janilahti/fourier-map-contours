@@ -207,7 +207,7 @@ button:disabled {
 .canvas-footer {
   padding-top: 16px;
 }
-.canvas-footer > span:first-child {
+.canvas-footer > :first-child {
   font-family: "Libre Caslon Display", Georgia, serif;
   font-size: 26px;
   color: var(--canvas-text);
@@ -386,8 +386,8 @@ a:focus-visible {
   --canvas-text: #d9dfcc;
   --canvas-muted: #8aab99;
   --grid: rgba(161, 193, 181, 0.12);
-  --circle: rgba(210, 164, 199, 0.45);
-  --vector: rgba(225, 185, 216, 0.65);
+  --circle: rgba(155, 178, 175, 0.32);
+  --vector: rgba(171, 201, 188, 0.55);
   --guide: rgba(146, 174, 163, 0.25);
   --trace: #84b8a4;
   --tip: #f2cc8b;
@@ -408,8 +408,8 @@ a:focus-visible {
   --canvas-text: #d2f0f4;
   --canvas-muted: #80b8c4;
   --grid: rgba(141, 213, 230, 0.13);
-  --circle: rgba(244, 188, 122, 0.45);
-  --vector: rgba(255, 213, 160, 0.65);
+  --circle: rgba(149, 205, 183, 0.32);
+  --vector: rgba(182, 221, 204, 0.55);
   --guide: rgba(137, 209, 221, 0.28);
   --trace: #6dd4d1;
   --tip: #ffce91;
@@ -430,8 +430,8 @@ a:focus-visible {
   --canvas-text: #f3d9c6;
   --canvas-muted: #c59a87;
   --grid: rgba(221, 171, 145, 0.13);
-  --circle: rgba(129, 210, 208, 0.45);
-  --vector: rgba(168, 231, 226, 0.65);
+  --circle: rgba(200, 175, 152, 0.32);
+  --vector: rgba(217, 193, 173, 0.55);
   --guide: rgba(217, 164, 141, 0.28);
   --trace: #e6a080;
   --tip: #f8d580;
@@ -453,8 +453,8 @@ a:focus-visible {
   --canvas-text: #ece2ff;
   --canvas-muted: #ac97ca;
   --grid: rgba(192, 164, 232, 0.13);
-  --circle: rgba(235, 200, 125, 0.45);
-  --vector: rgba(248, 222, 170, 0.65);
+  --circle: rgba(202, 173, 200, 0.32);
+  --vector: rgba(221, 201, 229, 0.55);
   --guide: rgba(182, 158, 213, 0.28);
   --trace: #bca2e8;
   --tip: #f6b5cf;
@@ -476,8 +476,8 @@ a:focus-visible {
   --canvas-text: #e6e5dc;
   --canvas-muted: #9caecb;
   --grid: rgba(147, 173, 213, 0.13);
-  --circle: rgba(236, 158, 198, 0.45);
-  --vector: rgba(248, 193, 221, 0.65);
+  --circle: rgba(167, 170, 216, 0.32);
+  --vector: rgba(182, 194, 232, 0.55);
   --guide: rgba(147, 173, 213, 0.28);
   --trace: #8aafe0;
   --tip: #eaca85;
@@ -791,4 +791,42 @@ input[type="checkbox"] {
 #progress {
   font-size: 10px;
   letter-spacing: 0.5px;
+}
+
+.growth-controls .hint span {
+  display: inline-block;
+  max-width: 100%;
+}
+#random-country {
+  width: 100%;
+  margin-top: 9px;
+  padding: 9px 10px;
+  background: var(--field);
+  color: var(--ink);
+  text-align: left;
+}
+#country-name {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 5px;
+  text-decoration-color: var(--canvas-muted);
+}
+#country-name::after {
+  content: " · Wikipedia";
+  font: 10px sans-serif;
+  color: var(--canvas-muted);
+}
+#country-name:hover {
+  text-decoration-color: var(--canvas-text);
+}
+
+.canvas-footer {
+  gap: 12px;
+}
+#country-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.canvas-metrics {
+  flex-shrink: 0;
 }

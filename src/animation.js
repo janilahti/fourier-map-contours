@@ -19,11 +19,14 @@ export function nextCount(count, limit = MAX_EPICYCLES) {
   return Math.min(MAX_EPICYCLES, limit, count + step);
 }
 
-// Hold a completed cycle for one cycle, then fade over two more cycles.
-export function traceOpacity(age) {
+// Growth traces fade immediately; ordinary traces hold for one extra cycle.
+export function traceOpacity(age, growing = false) {
   return Math.max(
     0,
-    Math.min(1, 1 - (age - CYCLE_SECONDS) / (2 * CYCLE_SECONDS)),
+    Math.min(
+      1,
+      1 - (age - (growing ? 0 : CYCLE_SECONDS)) / (2 * CYCLE_SECONDS),
+    ),
   );
 }
 export function highlightOpacity(age) {
@@ -83,7 +86,7 @@ export class ContourAnimation {
     this.strokes = this.strokes.filter(
       (stroke) =>
         stroke.completedAt === null ||
-        traceOpacity(this.time - stroke.completedAt) > 0,
+        traceOpacity(this.time - stroke.completedAt, this.growing) > 0,
     );
   }
 }

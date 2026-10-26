@@ -158,54 +158,43 @@ test("contour fills the separate-mode canvas without clipping its reference outl
   }
 });
 
-test("first and ±1-frequency circles fit fully at every phase on desktop and mobile", async () => {
+test("every map stays centered and fills the canvas independently of its circles", async () => {
   const { fitDrawing } = await import("../src/math.js");
   const data = JSON.parse(
     readFileSync(new URL("../public/data/countries.geojson", import.meta.url)),
   );
-  for (const id of ["FIN", "JPN", "USA", "CHL", "RUS", "UKR"]) {
-    const feature = data.features.find((f) => f.properties.id === id);
+  for (const feature of data.features) {
     const points = resample(mainRing(feature.geometry), 128);
-    const series = {
-      c: transform(points),
-      x: transform(points.map((p) => [p[0], 0])),
-      y: transform(points.map((p) => [p[1], 0])),
-    };
-    for (const [w, h] of [
+    for (const [width, height] of [
       [900, 650],
       [350, 310],
     ])
       for (const separate of [false, true]) {
-        const fit = fitDrawing(points, w, h, separate, series);
-        const chains = separate
-          ? [
-              [series.x, fit.xSource, 0],
-              [series.y, fit.ySource, Math.PI / 2],
-            ]
-          : [[series.c, fit.origin, 0]];
-        for (const [terms, start, rotation] of chains)
-          for (let phase = 0; phase < 1; phase += 0.071) {
-            let center = [...start];
-            terms.forEach((term, i) => {
-              const radius = term.amplitude * fit.scale;
-              if (i === 0 || Math.abs(term.frequency) === 1) {
-                assert.ok(
-                  center[0] - radius >= -1e-8 &&
-                    center[0] + radius <= w + 1e-8 &&
-                    center[1] - radius >= -1e-8 &&
-                    center[1] + radius <= h + 1e-8,
-                  `${id} ${separate ? "separate" : "complex"} circle ${i}`,
-                );
-              }
-              const angle = TAU * term.frequency * phase + rotation;
-              center[0] +=
-                (term.re * Math.cos(angle) - term.im * Math.sin(angle)) *
-                fit.scale;
-              center[1] +=
-                (term.re * Math.sin(angle) + term.im * Math.cos(angle)) *
-                fit.scale;
-            });
-          }
+        const fit = fitDrawing(points, width, height, separate);
+        const projected = points.map((p) => [
+          fit.origin[0] + p[0] * fit.scale,
+          fit.origin[1] + p[1] * fit.scale,
+        ]);
+        const minX = Math.min(...projected.map((p) => p[0])),
+          maxX = Math.max(...projected.map((p) => p[0]));
+        const minY = Math.min(...projected.map((p) => p[1])),
+          maxY = Math.max(...projected.map((p) => p[1]));
+        assert.ok(
+          Math.abs((minX + maxX) / 2 - width / 2) < 1e-8,
+          feature.properties.name,
+        );
+        assert.ok(
+          Math.abs((minY + maxY) / 2 - height / 2) < 1e-8,
+          feature.properties.name,
+        );
+        assert.ok(
+          minX >= 0 && minY >= 0 && maxX <= width && maxY <= height,
+          feature.properties.name,
+        );
+        assert.ok(
+          Math.max((maxX - minX) / width, (maxY - minY) / height) > 0.94,
+          feature.properties.name,
+        );
       }
   }
 });
@@ -225,12 +214,7 @@ test("axis sources stay halfway toward the margins", async () => {
       ],
       128,
     );
-    const series = {
-      c: transform(points),
-      x: transform(points.map((p) => [p[0], 0])),
-      y: transform(points.map((p) => [p[1], 0])),
-    };
-    const fit = fitDrawing(points, w, h, true, series);
+    const fit = fitDrawing(points, w, h, true);
     assert.equal(fit.xSource[1], fit.origin[1] / 2);
     assert.equal(fit.ySource[0], fit.origin[0] / 2);
     assert.ok(fit.ySource[0] < w * 0.4 && fit.xSource[1] < h * 0.4);

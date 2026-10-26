@@ -93,3 +93,19 @@ test("successive approximations are separate paths, with correct count at each b
     ),
   );
 });
+
+test("build-up traces start fading one cycle earlier than ordinary traces", () => {
+  const growing = new ContourAnimation(point, { growing: true });
+  growing.advance(20.1);
+  const age = growing.time - growing.strokes[0].completedAt;
+  assert.ok(traceOpacity(age, true) < 1);
+  assert.equal(traceOpacity(age, false), 1);
+  assert.equal(traceOpacity(20, true), 0.5);
+  assert.equal(traceOpacity(40, true), 0);
+  growing.advance(39.9);
+  assert.ok(
+    growing.strokes.every(
+      (s) => s.completedAt === null || growing.time - s.completedAt < 40,
+    ),
+  );
+});

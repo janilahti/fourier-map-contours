@@ -117,67 +117,31 @@ export function fitContour(points, width, height, separate = false) {
   };
 }
 
-// Conservative envelope of the first displayed circle and the ±1-frequency
-// circles, including all preceding vectors, valid for every animation phase.
-export function firstCircleExtent(terms) {
-  let reach = 0,
-    extent = 0;
-  terms.forEach((term, index) => {
-    reach += term.amplitude;
-    if (index === 0 || Math.abs(term.frequency) === 1) extent = reach;
-  });
-  return extent;
-}
-// Maximize scale while preserving both contour and first-order circle bounds.
-// Separate-series sources sit halfway from the drawing origin to each edge.
-export function fitDrawing(points, width, height, separate, series) {
+// The outline has priority: center its bounding box and use the available space.
+// Sources may overlap the outline and large circles may extend beyond the canvas.
+export function fitDrawing(points, width, height, separate) {
   const minX = Math.min(...points.map((p) => p[0])),
     maxX = Math.max(...points.map((p) => p[0]));
   const minY = Math.min(...points.map((p) => p[1])),
     maxY = Math.max(...points.map((p) => p[1]));
   const padding = Math.max(8, Math.min(width, height) * 0.025);
-  const rx = firstCircleExtent(separate ? series.x : series.c);
-  const ry = separate ? firstCircleExtent(series.y) : rx;
-  function ranges(scale) {
-    const x = [
-      Math.max(padding - minX * scale, padding + rx * scale),
-      Math.min(width - padding - maxX * scale, width - padding - rx * scale),
-    ];
-    const y = [
-      Math.max(padding - minY * scale, padding + ry * scale),
-      Math.min(height - padding - maxY * scale, height - padding - ry * scale),
-    ];
-    if (separate) {
-      x[0] = Math.max(x[0], 2 * (padding + ry * scale));
-      x[1] = Math.min(x[1], 2 * (width - padding - ry * scale));
-      y[0] = Math.max(y[0], 2 * (padding + rx * scale));
-      y[1] = Math.min(y[1], 2 * (height - padding - rx * scale));
-    }
-    return { x, y };
-  }
-  let low = 0,
-    high = Math.min(
-      (width - 2 * padding) / (maxX - minX || 1),
-      (height - 2 * padding) / (maxY - minY || 1),
-    );
-  for (let i = 0; i < 50; i++) {
-    const mid = (low + high) / 2,
-      { x, y } = ranges(mid);
-    if (x[0] <= x[1] && y[0] <= y[1]) low = mid;
-    else high = mid;
-  }
-  const scale = low,
-    { x, y } = ranges(scale);
-  const clamp = (v, range) => Math.max(range[0], Math.min(range[1], v));
+  const scale = Math.min(
+    (width - 2 * padding) / (maxX - minX || 1),
+    (height - 2 * padding) / (maxY - minY || 1),
+  );
   const origin = [
-    clamp(width / 2 - ((minX + maxX) * scale) / 2, x),
-    clamp(height / 2 - ((minY + maxY) * scale) / 2, y),
+    width / 2 - ((minX + maxX) * scale) / 2,
+    height / 2 - ((minY + maxY) * scale) / 2,
   ];
   return {
     scale,
     origin,
-    xSource: [origin[0], origin[1] / 2],
-    ySource: [origin[0] / 2, origin[1]],
+    xSource: separate
+      ? [origin[0], Math.max(padding, Math.min(origin[1] / 2, height * 0.35))]
+      : origin.slice(),
+    ySource: separate
+      ? [Math.max(padding, Math.min(origin[0] / 2, width * 0.35)), origin[1]]
+      : origin.slice(),
   };
 }
 
