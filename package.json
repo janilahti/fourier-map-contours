@@ -1,0 +1,16 @@
+{
+  "name": "fourier-map-contours",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build --base=./",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test",
+    "build:pages": "vite build --base=./ --outDir docs && node -e \"require('node:fs').writeFileSync('docs/.nojekyll', '')\""
+  },
+  "devDependencies": {
+    "vite": "^6.4.1"
+  }
+}
