@@ -209,3 +209,47 @@ test("first and ±1-frequency circles fit fully at every phase on desktop and mo
       }
   }
 });
+
+test("axis sources stay halfway toward the margins", async () => {
+  const { fitDrawing } = await import("../src/math.js");
+  for (const [w, h] of [
+    [900, 650],
+    [350, 310],
+  ]) {
+    const points = resample(
+      [
+        [0, 0],
+        [2, 0],
+        [2, 3],
+        [0, 3],
+      ],
+      128,
+    );
+    const series = {
+      c: transform(points),
+      x: transform(points.map((p) => [p[0], 0])),
+      y: transform(points.map((p) => [p[1], 0])),
+    };
+    const fit = fitDrawing(points, w, h, true, series);
+    assert.equal(fit.xSource[1], fit.origin[1] / 2);
+    assert.equal(fit.ySource[0], fit.origin[0] / 2);
+    assert.ok(fit.ySource[0] < w * 0.4 && fit.xSource[1] < h * 0.4);
+  }
+});
+
+test("RMS error is zero for full reconstruction and improves with detail", async () => {
+  const { reconstructionError } = await import("../src/math.js");
+  const points = Array.from({ length: 128 }, (_, i) => [
+    Math.cos((TAU * i) / 128) + 0.2 * Math.cos((3 * TAU * i) / 128),
+    Math.sin((TAU * i) / 128) + 0.1 * Math.sin((5 * TAU * i) / 128),
+  ]);
+  const c = transform(points),
+    x = transform(points.map((p) => [p[0], 0])),
+    y = transform(points.map((p) => [p[1], 0]));
+  assert.ok(reconstructionError(points, { c }) < 1e-10);
+  assert.ok(reconstructionError(points, { x, y }, true) < 1e-10);
+  assert.ok(
+    reconstructionError(points, { c: c.slice(0, 1) }) >
+      reconstructionError(points, { c: c.slice(0, 3) }),
+  );
+});

@@ -6,11 +6,13 @@ import {
   transform,
   evaluate,
   fitDrawing,
+  reconstructionError,
 } from "./math.js";
 import {
   ContourAnimation,
   highlightOpacity,
   traceOpacity,
+  BASE_PLAYBACK_RATE,
 } from "./animation.js";
 import { palettes, canvasColors } from "./palettes.js";
 const $ = (s) => document.querySelector(s);
@@ -20,13 +22,14 @@ $("#app").innerHTML =
 <div class="control-heading"><label for="country">Choose a country</label><button class="info-button" type="button" aria-label="About country outlines" aria-expanded="false" aria-controls="country-info">i</button><p class="info-tip" id="country-info" role="tooltip" hidden>Only the largest connected outer region is drawn. This Fourier drawing follows one continuous, closed path; separate islands would require pen lifts or artificial connecting lines.</p></div><select id="country" disabled><option>Loading atlas…</option></select>
 <div class="control-heading"><label for="mode">Fourier representation</label><button class="info-button" type="button" aria-label="About Fourier representations" aria-expanded="false" aria-controls="mode-info">i</button><p class="info-tip" id="mode-info" role="tooltip" hidden>Complex mode treats x + iy as one signal and adds one chain of rotating vectors. Separate mode reconstructs x and y independently; their crosshair marks the drawing point.</p></div><select id="mode"><option value="complex">Complex plane · z(t) = x(t) + iy(t)</option><option value="separate">Separate series · x(t) and y(t)</option></select>
 <div class="control-heading"><label for="count">Epicycles <output id="count-value">64</output></label><button class="info-button" type="button" aria-label="About epicycles" aria-expanded="false" aria-controls="count-info">i</button><p class="info-tip" id="count-info" role="tooltip" hidden>Epicycles are circles traced by rotating Fourier vectors. Radius is amplitude, rotation rate is frequency, and starting angle is phase. More circles recover finer detail. The count is per chain in separate mode.</p></div><div class="count-control"><button id="decrease" type="button" aria-label="Decrease epicycles by one">−</button><input id="count" type="range" min="1" max="256" value="64"><button id="increase" type="button" aria-label="Increase epicycles by one">+</button></div><div class="range-labels"><span>ABSTRACT</span><span>DETAILED</span></div><p class="hint" id="budget">64 rotating vectors, largest amplitudes first</p>
-<label for="speed"><span>Drawing speed <output id="speed-value">1×</output></span></label><input id="speed" type="range" min="0.25" max="3" step="0.25" value="1">
-<label for="direction"><span>Playback direction</span></label><select id="direction"><option value="1">Forward</option><option value="-1">Reverse</option></select>
+<div class="growth-controls"><label><input id="grow" type="checkbox"> Build up epicycles</label><p class="hint">Start with one and grow to 256. Older outlines gradually fade.</p></div>
+<label for="speed"><span>Drawing speed <output id="speed-value">1×</output></span></label><div class="count-control"><button id="slower" type="button" aria-label="Decrease drawing speed one notch">−</button><input id="speed" type="range" min="0.25" max="3" step="0.25" value="1"><button id="faster" type="button" aria-label="Increase drawing speed one notch">+</button></div>
+<label class="checkbox-row reverse-control"><input id="direction" type="checkbox"> Reverse playback</label>
 <label for="palette"><span>Colour palette</span></label><select id="palette">${palettes.map((p) => `<option value="${p.id}">${p.name}</option>`).join("")}</select>
-<div class="growth-controls"><label><input id="grow" type="checkbox"> Build up epicycles</label><label for="limit">Stop at <input id="limit" type="number" min="1" max="256" step="1" value="256" aria-label="Epicycle growth limit"></label><p class="hint">Start with one; add larger steps after each cycle. Older outlines gradually fade.</p></div>
+
 <div class="toggles"><label><input id="circles" type="checkbox" checked> Show epicycles</label><label><input id="guide" type="checkbox" checked> Reference outline</label><label><input id="glow" type="checkbox" checked> Highlight the drawing tip</label><label><input id="values" type="checkbox" aria-controls="math-panel"> Show equations &amp; live values</label></div>
 <div class="actions"><button id="play" disabled>Ⅱ Pause</button><button id="reset" disabled aria-label="Restart drawing">↺ Restart</button></div>
-</aside><div class="drawing"><div class="canvas-heading"><span><span class="dot"></span> <span id="state">LOADING ATLAS</span></span><span id="mode-label">COMPLEX SERIES</span></div><canvas aria-label="Animated country outline drawn by Fourier epicycles" role="img"></canvas><div class="canvas-footer"><span id="country-name">—</span><span id="progress">0% OF CYCLE</span></div><section id="math-panel" class="math-panel" aria-label="Fourier equations and live values" hidden><p id="equation"></p><p class="math-units">Coordinates are normalized to the selected outline. t is measured in cycles.</p><output id="live-values"></output><details id="coefficients"><summary>Largest coefficients · amplitude, frequency &amp; phase</summary><div id="coefficient-table"></div></details></section><div id="error" role="alert" hidden></div></div></section>
+</aside><div class="drawing"><div class="canvas-heading"><span><span class="dot"></span> <span id="state">LOADING ATLAS</span></span><span id="mode-label">COMPLEX SERIES</span></div><canvas aria-label="Animated country outline drawn by Fourier epicycles" role="img"></canvas><div class="canvas-footer"><span id="country-name">—</span><span class="canvas-metrics"><span id="canvas-count">64 epicycles</span><span id="progress" title="Estimated root-mean-square distance between matching points on the reconstructed and original outline, as a percentage of the outline’s bounding-box diagonal.">RMS error —</span></span></div><section id="math-panel" class="math-panel" aria-label="Fourier equations and live values" hidden><p id="equation"></p><p class="math-units">Coordinates are normalized to the selected outline. t is measured in cycles.</p><output id="live-values"></output><details id="coefficients"><summary>Largest coefficients · amplitude, frequency &amp; phase</summary><div id="coefficient-table"></div></details></section><div id="error" role="alert" hidden></div></div></section>
 <section class="notes"><div><span class="eyebrow">THE IDEA</span><h2>From a border to a wave.</h2><p>Sample an outline at equal distances. A discrete Fourier transform turns those points into rotating vectors. Add their tips together, and the border appears again.</p></div><div><span class="eyebrow">THE CIRCLES</span><h2>Small orbits. Fine details.</h2><p>Each epicycle has an amplitude (radius), frequency (rotation rate), and phase (starting angle). The largest amplitudes are drawn first. More circles recover finer details.</p></div><div><span class="eyebrow">TWO WAYS TO DRAW</span><h2>One plane, or two axes.</h2><p>The complex mode draws a single vector chain. Separate mode uses one chain for x and one for y; their crosshair locates the drawing tip. The circle count applies to each chain.</p></div></section></main>
 <footer><span>BORDER / ORBIT <span class="muted">· A little mathematics, a whole world.</span></span><a class="repo-link" href="https://github.com/janilahti/fourier-map-contours" target="_blank" rel="noreferrer">Source on GitHub ↗</a><span>Map data: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth</a> · 1:50m · Public domain</span></footer>`;
 const canvas = $("canvas"),
@@ -46,6 +49,7 @@ let countries = [],
   xSource = [0, 0],
   ySource = [0, 0];
 const val = (id) => $(id).value;
+const direction = () => ($("#direction").checked ? -1 : 1);
 let colors = canvasColors(),
   lastReadout = 0;
 const equationComplex = "z(t) = Σ Aₖ exp(i(2πk t + φₖ)) = x(t) + i y(t)";
@@ -82,31 +86,32 @@ $("#values").addEventListener("change", () => {
   updateMath(terms());
   lastReadout = 0;
 });
-function growthLimit() {
-  const value = Number(val("#limit"));
-  return val("#limit").trim() && Number.isFinite(value)
-    ? Math.max(1, Math.min(256, Math.round(value)))
-    : 256;
-}
 function syncCount() {
   const count = animation?.count ?? +val("#count");
   $("#count").value = count;
   $("#count-value").textContent = count;
   $("#budget").textContent =
-    `${count} rotating vectors${val("#mode") === "separate" ? " per axis" : ""}, largest amplitudes first`;
+    `${count} rotating vector${count === 1 ? "" : "s"}${val("#mode") === "separate" ? " per axis" : ""}, largest amplitudes first`;
   $("#count").disabled = $("#grow").checked;
   $("#decrease").disabled = $("#grow").checked || count <= 1;
   $("#increase").disabled = $("#grow").checked || count >= 256;
+  $("#canvas-count").textContent =
+    val("#mode") === "separate"
+      ? `${count} ${count === 1 ? "epicycle" : "epicycles"} / axis`
+      : `${count} ${count === 1 ? "epicycle" : "epicycles"}`;
+  if (points.length)
+    $("#progress").textContent =
+      `RMS error ${reconstructionError(points, terms(count), val("#mode") === "separate").toFixed(2)}%`;
   updateMath(terms(count));
 }
 function reset() {
   animation = points.length
     ? new ContourAnimation(
-        (phase, count) => pointAt(phase * +val("#direction"), terms(count)),
+        (phase, count) => pointAt(phase * direction(), terms(count)),
         {
           count: +val("#count"),
           growing: $("#grow").checked,
-          limit: growthLimit(),
+          limit: 256,
         },
       )
     : null;
@@ -186,7 +191,7 @@ function render(now) {
   last = now;
   if (animation && playing) {
     const previousCount = animation.count;
-    animation.advance(dt * +val("#speed"));
+    animation.advance(dt * +val("#speed") * BASE_PLAYBACK_RATE);
     if (animation.count !== previousCount) syncCount();
   }
   const tr = terms();
@@ -200,7 +205,7 @@ function render(now) {
   if (points.length) {
     if ($("#guide").checked)
       path([...points, points[0]].map(screen), colors.guide, 1);
-    const u = t * +val("#direction");
+    const u = t * direction();
     let end;
     if (val("#mode") === "complex") end = chain(tr.c, u, origin);
     else {
@@ -249,18 +254,16 @@ function render(now) {
     ctx.shadowBlur = 0;
   }
   if (points.length && $("#values").checked && now - lastReadout >= 100) {
-    const p = pointAt(t * +val("#direction"), tr);
+    const p = pointAt(t * direction(), tr);
     $("#live-values").textContent =
-      `t = ${(t * +val("#direction")).toFixed(3)} · x(t) = ${p[0].toFixed(4)} · y(t) = ${p[1].toFixed(4)}`;
+      `t = ${(t * direction()).toFixed(3)} · x(t) = ${p[0].toFixed(4)} · y(t) = ${p[1].toFixed(4)}`;
     lastReadout = now;
   }
-  $("#progress").textContent = `${Math.floor(t * 100)}% OF CYCLE`;
   requestAnimationFrame(render);
 }
 $("#country").addEventListener("change", choose);
-for (const id of ["#count", "#mode", "#direction", "#grow", "#limit"])
-  $(id).addEventListener(id === "#limit" ? "change" : "input", () => {
-    if (id === "#limit") $("#limit").value = growthLimit();
+for (const id of ["#count", "#mode", "#direction", "#grow"])
+  $(id).addEventListener("input", () => {
     reset();
     layout();
     $("#mode-label").textContent =
@@ -274,16 +277,32 @@ for (const [id, step] of [
     $("#count").value = Math.max(1, Math.min(256, +val("#count") + step));
     reset();
   });
-for (const button of document.querySelectorAll(".info-button")) {
+const infoButtons = [...document.querySelectorAll(".info-button")];
+const closeInfo = (button) => {
+  document.getElementById(button.getAttribute("aria-controls")).hidden = true;
+  button.setAttribute("aria-expanded", "false");
+};
+// Capture before a new button's handler runs: every click dismisses the old box.
+document.addEventListener(
+  "click",
+  (event) => {
+    const alreadyOpen = infoButtons.find(
+      (button) => button.getAttribute("aria-expanded") === "true",
+    );
+    for (const button of infoButtons) closeInfo(button);
+    if (alreadyOpen && event.target.closest(".info-button") === alreadyOpen)
+      event.preventDefault();
+  },
+  true,
+);
+for (const button of infoButtons) {
   const tip = document.getElementById(button.getAttribute("aria-controls"));
   button.setAttribute("aria-describedby", tip.id);
-  const show = (open) => {
-    tip.hidden = !open;
-    button.setAttribute("aria-expanded", String(open));
-  };
-  button.addEventListener("click", () =>
-    show(button.getAttribute("aria-expanded") !== "true"),
-  );
+  button.addEventListener("click", (event) => {
+    if (event.defaultPrevented) return;
+    tip.hidden = false;
+    button.setAttribute("aria-expanded", "true");
+  });
   button.addEventListener("mouseenter", () => {
     if (matchMedia("(hover: hover)").matches) tip.hidden = false;
   });
@@ -296,7 +315,7 @@ for (const button of document.querySelectorAll(".info-button")) {
   });
   button.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
-      show(false);
+      closeInfo(button);
       button.blur();
     }
   });
@@ -304,10 +323,21 @@ for (const button of document.querySelectorAll(".info-button")) {
 $("#coefficients").addEventListener("toggle", () =>
   $("#math-panel").classList.toggle("expanded", $("#coefficients").open),
 );
-$("#speed").addEventListener(
-  "input",
-  () => ($("#speed-value").textContent = `${val("#speed")}×`),
-);
+function syncSpeed() {
+  $("#speed-value").textContent = `${val("#speed")}×`;
+  $("#slower").disabled = +val("#speed") <= 0.25;
+  $("#faster").disabled = +val("#speed") >= 3;
+}
+$("#speed").addEventListener("input", syncSpeed);
+for (const [id, step] of [
+  ["#slower", -0.25],
+  ["#faster", 0.25],
+])
+  $(id).addEventListener("click", () => {
+    $("#speed").value = Math.max(0.25, Math.min(3, +val("#speed") + step));
+    syncSpeed();
+  });
+syncSpeed();
 $("#play").addEventListener("click", () => {
   playing = !playing;
   $("#play").textContent = playing ? "Ⅱ Pause" : "▶ Play";

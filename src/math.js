@@ -128,34 +128,74 @@ export function firstCircleExtent(terms) {
   });
   return extent;
 }
+// Maximize scale while preserving both contour and first-order circle bounds.
+// Separate-series sources sit halfway from the drawing origin to each edge.
 export function fitDrawing(points, width, height, separate, series) {
-  const bounds = points.slice();
-  const addCircle = (center, radius) =>
-    bounds.push(
-      [center[0] - radius, center[1] - radius],
-      [center[0] + radius, center[1] + radius],
+  const minX = Math.min(...points.map((p) => p[0])),
+    maxX = Math.max(...points.map((p) => p[0]));
+  const minY = Math.min(...points.map((p) => p[1])),
+    maxY = Math.max(...points.map((p) => p[1]));
+  const padding = Math.max(8, Math.min(width, height) * 0.025);
+  const rx = firstCircleExtent(separate ? series.x : series.c);
+  const ry = separate ? firstCircleExtent(series.y) : rx;
+  function ranges(scale) {
+    const x = [
+      Math.max(padding - minX * scale, padding + rx * scale),
+      Math.min(width - padding - maxX * scale, width - padding - rx * scale),
+    ];
+    const y = [
+      Math.max(padding - minY * scale, padding + ry * scale),
+      Math.min(height - padding - maxY * scale, height - padding - ry * scale),
+    ];
+    if (separate) {
+      x[0] = Math.max(x[0], 2 * (padding + ry * scale));
+      x[1] = Math.min(x[1], 2 * (width - padding - ry * scale));
+      y[0] = Math.max(y[0], 2 * (padding + rx * scale));
+      y[1] = Math.min(y[1], 2 * (height - padding - rx * scale));
+    }
+    return { x, y };
+  }
+  let low = 0,
+    high = Math.min(
+      (width - 2 * padding) / (maxX - minX || 1),
+      (height - 2 * padding) / (maxY - minY || 1),
     );
-  let xSource = [0, 0],
-    ySource = [0, 0];
-  if (separate) {
-    const rx = firstCircleExtent(series.x),
-      ry = firstCircleExtent(series.y);
-    // Place source circles against the contour bounds; overlap is intentional.
-    xSource = [
-      0,
-      Math.min(0, Math.min(...points.map((p) => p[1])) + rx * 0.25),
-    ];
-    ySource = [
-      Math.min(0, Math.min(...points.map((p) => p[0])) + ry * 0.25),
-      0,
-    ];
-    addCircle(xSource, rx);
-    addCircle(ySource, ry);
-  } else addCircle([0, 0], firstCircleExtent(series.c));
-  const fit = fitContour(bounds, width, height);
-  const project = (p) => [
-    fit.origin[0] + p[0] * fit.scale,
-    fit.origin[1] + p[1] * fit.scale,
+  for (let i = 0; i < 50; i++) {
+    const mid = (low + high) / 2,
+      { x, y } = ranges(mid);
+    if (x[0] <= x[1] && y[0] <= y[1]) low = mid;
+    else high = mid;
+  }
+  const scale = low,
+    { x, y } = ranges(scale);
+  const clamp = (v, range) => Math.max(range[0], Math.min(range[1], v));
+  const origin = [
+    clamp(width / 2 - ((minX + maxX) * scale) / 2, x),
+    clamp(height / 2 - ((minY + maxY) * scale) / 2, y),
   ];
-  return { ...fit, xSource: project(xSource), ySource: project(ySource) };
+  return {
+    scale,
+    origin,
+    xSource: [origin[0], origin[1] / 2],
+    ySource: [origin[0] / 2, origin[1]],
+  };
+}
+
+// RMS positional error relative to the original outline's bounding-box diagonal.
+export function reconstructionError(points, series, separate = false) {
+  const diagonal = Math.hypot(
+    Math.max(...points.map((p) => p[0])) - Math.min(...points.map((p) => p[0])),
+    Math.max(...points.map((p) => p[1])) - Math.min(...points.map((p) => p[1])),
+  );
+  const samples = Math.min(128, points.length);
+  let squared = 0;
+  for (let i = 0; i < samples; i++) {
+    const index = Math.floor((i * points.length) / samples),
+      t = index / points.length;
+    const q = separate
+      ? [evaluate(series.x, t)[0], evaluate(series.y, t)[0]]
+      : evaluate(series.c, t);
+    squared += (q[0] - points[index][0]) ** 2 + (q[1] - points[index][1]) ** 2;
+  }
+  return diagonal ? (100 * Math.sqrt(squared / samples)) / diagonal : 0;
 }

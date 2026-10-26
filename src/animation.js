@@ -1,3 +1,4 @@
+export const BASE_PLAYBACK_RATE = 1.75;
 export const CYCLE_SECONDS = 20;
 export const HIGHLIGHT_SECONDS = 1.1;
 export const MAX_EPICYCLES = 256;
