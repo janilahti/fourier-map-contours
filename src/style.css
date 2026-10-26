@@ -725,10 +725,10 @@ button:disabled {
 }
 :root[data-palette="high-visibility"]
   :is(label, .hint, .toggles label, .growth-controls label, .notes p) {
-  font-size: 13px;
+  font-size: 14px;
 }
 :root[data-palette="high-visibility"] :is(select, button) {
-  font-size: 13px;
+  font-size: 14px;
 }
 @media (max-width: 580px) {
   .intro {
@@ -829,4 +829,195 @@ input[type="checkbox"] {
 }
 .canvas-metrics {
   flex-shrink: 0;
+}
+
+/* Native input semantics with palette-aware empty and checked states. */
+input[type="checkbox"] {
+  appearance: none;
+  display: grid;
+  place-content: center;
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+input[type="checkbox"]::before {
+  content: "";
+  width: 11px;
+  height: 6px;
+  border-left: 2px solid var(--button-text);
+  border-bottom: 2px solid var(--button-text);
+  transform: translateY(-1px) rotate(-45deg) scale(0);
+}
+input[type="checkbox"]:checked {
+  background: var(--button);
+  border-color: var(--button);
+}
+input[type="checkbox"]:checked::before {
+  transform: translateY(-1px) rotate(-45deg) scale(1);
+}
+#random-country {
+  background: var(--button);
+  color: var(--button-text);
+  border-color: var(--button);
+  border-radius: 6px;
+  text-align: center;
+  font-weight: 600;
+  padding: 11px 8px;
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--button) 65%, #000);
+}
+#random-country:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+#country-name::after {
+  margin-left: 5px;
+  font-size: 12px;
+}
+select {
+  font-size: 14px;
+}
+.control-heading label,
+label[for] span {
+  font-size: 14px;
+}
+:is(.toggles label, .growth-controls label, .checkbox-row) {
+  font-size: 14px;
+}
+.hint {
+  font-size: 12px;
+  line-height: 1.65;
+}
+.range-labels {
+  font-size: 10px;
+  letter-spacing: 0.6px;
+}
+button {
+  font-size: 13px;
+}
+.info-tip {
+  font-size: 13px;
+}
+.notes p {
+  font-size: 14px;
+  line-height: 1.8;
+}
+.notes .eyebrow {
+  font-size: 10px;
+}
+footer {
+  font-size: 11px;
+  line-height: 1.6;
+  flex-wrap: wrap;
+}
+.canvas-heading {
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+.canvas-heading > span:last-child {
+  font-size: 10px;
+}
+#canvas-count {
+  font-size: 13px;
+}
+#progress {
+  font-size: 12px;
+}
+.math-panel {
+  font-size: 13px;
+}
+.math-panel :is(.math-units, summary, caption) {
+  font-size: 12px;
+}
+.math-panel table {
+  font-size: 12px;
+}
+.intro-body .lede {
+  font-size: 15px;
+}
+@media (max-width: 800px) and (min-width: 581px) {
+  .studio {
+    grid-template-columns: 285px 1fr;
+  }
+}
+@media (max-width: 580px) {
+  select {
+    font-size: 16px;
+  }
+  .intro-kicker {
+    font-size: 9px;
+    letter-spacing: 0.35px;
+    white-space: normal;
+    align-items: baseline;
+  }
+  .intro-kicker > span {
+    flex: 1;
+  }
+  .intro-kicker > span:last-child {
+    text-align: right;
+  }
+  .intro-body {
+    flex-wrap: wrap;
+    gap: 18px;
+  }
+  .intro-body .lede {
+    font-size: 14px;
+    max-width: none;
+    line-height: 1.65;
+  }
+  .intro-body .lede br {
+    display: none;
+  }
+  .math-panel output {
+    font-size: 12px;
+  }
+}
+@media (forced-colors: active) {
+  input[type="checkbox"] {
+    appearance: auto;
+  }
+  input[type="checkbox"]::before {
+    display: none;
+  }
+}
+@media (min-width: 581px) {
+  .info-tip {
+    left: calc(100% + 14px);
+    right: auto;
+    top: 0;
+    width: clamp(180px, 24vw, 270px);
+  }
+  .info-tip::before {
+    content: "";
+    position: absolute;
+    right: 100%;
+    top: 0;
+    bottom: 0;
+    width: 15px;
+  }
+}
+
+@media (max-width: 580px) {
+  :root[data-palette="high-visibility"] select {
+    font-size: 16px;
+  }
+}
+
+/* Keep canvas bitmap dimensions from inflating the flex/grid layout on resize. */
+.canvas-viewport {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 440px;
+  min-width: 0;
+}
+.canvas-viewport canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+@media (max-width: 580px) {
+  .canvas-viewport {
+    min-height: 310px;
+  }
 }
