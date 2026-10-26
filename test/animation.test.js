@@ -109,3 +109,18 @@ test("build-up traces start fading one cycle earlier than ordinary traces", () =
     ),
   );
 });
+
+test("a shared build-up view continues from the shared epicycle count", () => {
+  const animation = new ContourAnimation(point, {
+    growing: true,
+    startCount: 16,
+  });
+  assert.equal(animation.count, 16);
+  animation.advance(CYCLE_SECONDS);
+  assert.equal(animation.count, 20);
+  const capped = new ContourAnimation(point, {
+    growing: true,
+    startCount: 9999,
+  });
+  assert.equal(capped.count, 256);
+});

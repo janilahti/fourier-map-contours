@@ -15,6 +15,7 @@ import {
   BASE_PLAYBACK_RATE,
 } from "./animation.js";
 import { wikipediaUrl, randomCountry } from "./countries.js";
+import { readSettings, shareUrl } from "./share.js";
 import { palettes, canvasColors } from "./palettes.js";
 const $ = (s) => document.querySelector(s);
 $("#app").innerHTML =
@@ -30,9 +31,10 @@ $("#app").innerHTML =
 
 <div class="toggles"><label><input id="circles" type="checkbox" checked> Show epicycles</label><label><input id="guide" type="checkbox" checked> Reference outline</label><label><input id="glow" type="checkbox" checked> Highlight the drawing tip</label><label><input id="values" type="checkbox" aria-controls="math-panel"> Show equations &amp; live values</label></div>
 <div class="actions"><button id="play" disabled>Ⅱ Pause</button><button id="reset" disabled aria-label="Restart drawing">↺ Restart</button></div>
-</aside><div class="drawing"><div class="canvas-heading"><span><span class="dot"></span> <span id="state">LOADING ATLAS</span></span><span id="mode-label">COMPLEX SERIES</span></div><div class="canvas-viewport"><canvas aria-label="Animated country outline drawn by Fourier epicycles" role="img"></canvas></div><div class="canvas-footer"><a id="country-name" href="https://en.wikipedia.org/" target="_blank" rel="noreferrer" title="Read about this country on Wikipedia">—</a><span class="canvas-metrics"><span id="canvas-count">64 epicycles</span><span id="progress" title="Estimated root-mean-square distance between matching points on the reconstructed and original outline, as a percentage of the outline’s bounding-box diagonal.">RMS error —</span></span></div><section id="math-panel" class="math-panel" aria-label="Fourier equations and live values" hidden><p id="equation"></p><p class="math-units">Coordinates are normalized to the selected outline. t is measured in cycles.</p><output id="live-values"></output><details id="coefficients"><summary>Largest coefficients · amplitude, frequency &amp; phase</summary><div id="coefficient-table"></div></details></section><div id="error" role="alert" hidden></div></div></section>
+</aside><div class="drawing"><div class="canvas-heading"><span><span class="dot"></span> <span id="state">LOADING ATLAS</span></span><div class="canvas-tools"><span id="mode-label">COMPLEX SERIES</span><button id="share" type="button" disabled>Share view</button></div></div><div class="canvas-viewport"><canvas aria-label="Animated country outline drawn by Fourier epicycles" role="img"></canvas></div><div class="canvas-footer"><a id="country-name" href="https://en.wikipedia.org/" target="_blank" rel="noreferrer" title="Read about this country on Wikipedia">—</a><span class="canvas-metrics"><span id="canvas-count">64 epicycles</span><span id="progress" title="Estimated root-mean-square distance between matching points on the reconstructed and original outline, as a percentage of the outline’s bounding-box diagonal.">RMS error —</span></span></div><section id="math-panel" class="math-panel" aria-label="Fourier equations and live values" hidden><p id="equation"></p><p class="math-units">Coordinates are normalized to the selected outline. t is measured in cycles.</p><output id="live-values"></output><details id="coefficients"><summary>Largest coefficients · amplitude, frequency &amp; phase</summary><div id="coefficient-table"></div></details></section><div id="error" role="alert" hidden></div></div></section>
 <section class="notes"><div><span class="eyebrow">THE IDEA</span><h2>From a border to a wave.</h2><p>Sample an outline at equal distances. A discrete Fourier transform turns those points into rotating vectors. Add their tips together, and the border appears again.</p></div><div><span class="eyebrow">THE CIRCLES</span><h2>Small orbits. Fine details.</h2><p>Each epicycle has an amplitude (radius), frequency (rotation rate), and phase (starting angle). The largest amplitudes are drawn first. More circles recover finer details.</p></div><div><span class="eyebrow">TWO WAYS TO DRAW</span><h2>One plane, or two axes.</h2><p>The complex mode draws a single vector chain. Separate mode uses one chain for x and one for y; their crosshair locates the drawing tip. The circle count applies to each chain.</p></div></section></main>
-<footer><span>BORDER / ORBIT <span class="muted">· A little mathematics, a whole world.</span></span><a class="repo-link" href="https://github.com/janilahti/fourier-map-contours" target="_blank" rel="noreferrer">Source on GitHub ↗</a><span>Map data: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth</a> · 1:50m · Public domain</span></footer>`;
+<footer><span class="footer-brand"><svg class="footer-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13"/><circle cx="16" cy="16" r="6"/></svg><span>BORDER / ORBIT <span class="muted">· A little mathematics, a whole world.</span></span></span><a class="repo-link" href="https://github.com/janilahti/fourier-map-contours" target="_blank" rel="noreferrer">Source and feedback on GitHub</a><span>Map data: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth</a> · 1:50m · Public domain</span></footer>
+<dialog id="share-dialog" aria-labelledby="share-title"><h2 id="share-title">Share this view</h2><p>The link keeps your country and settings. The drawing starts with a fresh trace.</p><label for="share-url">Link to this view</label><input id="share-url" type="url" readonly><div class="share-actions"><button id="copy-link" class="share-primary" type="button">Copy link</button><button id="native-share" type="button" hidden>Share…</button><form method="dialog"><button type="submit">Close</button></form></div><p id="share-status" role="status" aria-live="polite"></p></dialog>`;
 const canvas = $("canvas"),
   ctx = canvas.getContext("2d");
 let countries = [],
@@ -105,7 +107,7 @@ function syncCount() {
       `RMS error ${reconstructionError(points, terms(count), val("#mode") === "separate").toFixed(2)}%`;
   updateMath(terms(count));
 }
-function reset() {
+function reset(startCount = 1) {
   animation = points.length
     ? new ContourAnimation(
         (phase, count) => pointAt(phase * direction(), terms(count)),
@@ -113,13 +115,14 @@ function reset() {
           count: +val("#count"),
           growing: $("#grow").checked,
           limit: 256,
+          startCount,
         },
       )
     : null;
   last = 0;
   syncCount();
 }
-function choose() {
+function choose({ startCount = 1 } = {}) {
   const feature = countries.find((f) => f.properties.id === val("#country"));
   points = resample(mainRing(feature.geometry));
   complex = transform(points);
@@ -133,7 +136,7 @@ function choose() {
     "aria-label",
     `${feature.properties.name} on Wikipedia (opens in a new tab)`,
   );
-  reset();
+  reset(startCount);
   layout();
   updateMath(terms());
 }
@@ -367,7 +370,58 @@ $("#random-country").addEventListener("click", () => {
   choose();
   setPlaying(true);
 });
-$("#reset").addEventListener("click", reset);
+$("#reset").addEventListener("click", () => reset());
+function currentSettings() {
+  return {
+    country: val("#country"),
+    mode: val("#mode"),
+    count: animation?.count ?? +val("#count"),
+    speed: +val("#speed"),
+    reverse: $("#direction").checked,
+    palette: val("#palette"),
+    grow: $("#grow").checked,
+    circles: $("#circles").checked,
+    outline: $("#guide").checked,
+    highlight: $("#glow").checked,
+    equations: $("#values").checked,
+    coefficients: $("#coefficients").open,
+    paused: !playing,
+  };
+}
+$("#share").addEventListener("click", () => {
+  $("#share-url").value = shareUrl(location.href, currentSettings());
+  $("#share-status").textContent = "";
+  $("#native-share").hidden = typeof navigator.share !== "function";
+  $("#share-dialog").showModal();
+  $("#share-url").select();
+});
+$("#copy-link").addEventListener("click", async () => {
+  try {
+    if (!navigator.clipboard?.writeText)
+      throw new Error("Clipboard unavailable");
+    await navigator.clipboard.writeText($("#share-url").value);
+    $("#share-status").textContent = "Link copied.";
+  } catch {
+    $("#share-url").focus();
+    $("#share-url").select();
+    $("#share-status").textContent = "Select and copy the link above.";
+  }
+});
+$("#native-share").addEventListener("click", async () => {
+  try {
+    await navigator.share({
+      title: `Border / Orbit — ${$("#country-name").textContent}`,
+      text: "A world drawn by circles. Explore this Fourier contour.",
+      url: $("#share-url").value,
+    });
+    $("#share-status").textContent = "Shared.";
+  } catch (error) {
+    $("#share-status").textContent =
+      error.name === "AbortError"
+        ? "Sharing cancelled."
+        : "Sharing unavailable. Copy the link instead.";
+  }
+});
 new ResizeObserver(layout).observe(canvas);
 requestAnimationFrame(render);
 async function loadAtlas() {
@@ -383,12 +437,42 @@ async function loadAtlas() {
     $("#country").replaceChildren(
       ...countries.map((f) => new Option(f.properties.name, f.properties.id)),
     );
-    $("#country").value = "FIN";
-    choose();
+    const restored = readSettings(
+      location.search,
+      countries.map((f) => f.properties.id),
+      palettes.map((p) => p.id),
+    );
+    $("#country").value = restored.country;
+    $("#mode").value = restored.mode;
+    $("#count").value = restored.count;
+    $("#speed").value = restored.speed;
+    $("#palette").value = restored.palette;
+    for (const [id, key] of [
+      ["direction", "reverse"],
+      ["grow", "grow"],
+      ["circles", "circles"],
+      ["guide", "outline"],
+      ["glow", "highlight"],
+      ["values", "equations"],
+    ])
+      $("#" + id).checked = restored[key];
+    $("#coefficients").open = restored.coefficients;
+    $("#math-panel").hidden = !restored.equations;
+    $("#math-panel").classList.toggle("expanded", restored.coefficients);
+    document.documentElement.dataset.palette = restored.palette;
+    colors = canvasColors();
+    playing =
+      !restored.paused &&
+      !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    syncSpeed();
+    $("#mode-label").textContent =
+      restored.mode === "complex" ? "COMPLEX SERIES" : "SEPARATE X / Y SERIES";
+    choose({ startCount: restored.count });
     $("#country").disabled = false;
     $("#random-country").disabled = false;
     $("#play").disabled = false;
     $("#reset").disabled = false;
+    $("#share").disabled = false;
     setPlaying(playing);
   } catch (error) {
     $("#error").hidden = false;

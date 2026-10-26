@@ -36,7 +36,7 @@ export function highlightOpacity(age) {
 export class ContourAnimation {
   constructor(
     pointAt,
-    { count = 64, growing = false, limit = MAX_EPICYCLES } = {},
+    { count = 64, growing = false, limit = MAX_EPICYCLES, startCount = 1 } = {},
   ) {
     this.pointAt = pointAt;
     this.growing = growing;
@@ -44,7 +44,9 @@ export class ContourAnimation {
       1,
       Math.min(MAX_EPICYCLES, Math.round(limit) || MAX_EPICYCLES),
     );
-    this.count = growing ? 1 : count;
+    this.count = growing
+      ? Math.max(1, Math.min(this.limit, Math.round(startCount) || 1))
+      : count;
     this.time = 0;
     this.cycle = 0;
     this.strokes = [this.newStroke()];

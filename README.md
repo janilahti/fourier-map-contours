@@ -58,3 +58,11 @@ The country name below the canvas links to its English Wikipedia article. **Rand
 ## Site usage
 
 GitHub’s [repository Traffic graph](https://docs.github.com/en/repositories/viewing-activity-and-data-for-your-repository/viewing-traffic-to-a-repository) reports visits to the repository; it does not count visits to the GitHub Pages site. Pages has no built-in page-view dashboard. A lightweight hosted service such as [GoatCounter](https://www.goatcounter.com/) can count site page views. Enabling it would require a GoatCounter site address from the account that should own the statistics. No analytics tracker is currently included.
+
+## Sharing a view
+
+**Share view** opens a link that records the selected country, representation, epicycle count, speed, direction, palette, build-up mode, drawing visibility options, equations/coefficients visibility, and paused state. Copy the link or use the device’s native share sheet when available. If clipboard access is unavailable, the link remains selectable for manual copying.
+
+Links start a fresh trace at the captured circle count. Build-up mode continues growing from that count; existing traces and the exact animation phase are not shared. The recipient’s reduced-motion preference keeps the animation paused until they choose to play. Unknown countries/palettes and malformed numeric values safely fall back or are clamped to the supported controls.
+
+The page includes static Open Graph and Twitter card metadata and a 1200 × 630 PNG preview at `public/social-preview.png`. Social crawlers can read the preview without executing JavaScript; it represents the atlas generally, including on country-specific links. The SVG source is generated from the app’s Fourier math with `node scripts/generate-social-card.mjs`. If changing the artwork, render the SVG to a 1200 × 630 PNG before rebuilding Pages. The preview image uses an absolute URL for the published GitHub Pages site. A fixed canonical/`og:url` is deliberately omitted so sharing services can retain the country/settings query string.
