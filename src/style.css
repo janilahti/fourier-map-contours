@@ -870,7 +870,6 @@ input[type="checkbox"]:checked::before {
   box-shadow: none;
 }
 #country-name::after {
-  margin-left: 5px;
   font-size: 12px;
 }
 select {
