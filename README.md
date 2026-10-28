@@ -2,6 +2,8 @@
 
 [Try the interactive atlas →](https://janilahti.github.io/fourier-map-contours/)
 
+[To-do / investigation checklist](TODO.md)
+
 An interactive Fourier atlas, built with Canvas, JavaScript, and Vite. No API key or backend is needed. Country data is bundled locally.
 
 ## Develop
