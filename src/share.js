@@ -1,5 +1,8 @@
 export const DEFAULT_SETTINGS = Object.freeze({
   country: "FIN",
+  detail: "50m",
+  notation: "phase",
+  nearby: true,
   mode: "complex",
   count: 64,
   speed: 1,
@@ -14,6 +17,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   paused: false,
 });
 const flags = [
+  "nearby",
   "reverse",
   "grow",
   "circles",
@@ -40,6 +44,10 @@ export function readSettings(search, countryIds, paletteIds) {
     state.mode = params.get("mode");
   if (paletteIds.includes(params.get("palette")))
     state.palette = params.get("palette");
+  if (["50m", "10m"].includes(params.get("detail")))
+    state.detail = params.get("detail");
+  if (["phase", "sine-cosine"].includes(params.get("notation")))
+    state.notation = params.get("notation");
   state.count = number(params, "count", 1, 256, 1);
   state.speed = number(params, "speed", 0.25, 3, 0.25);
   for (const key of flags) {
@@ -56,7 +64,11 @@ export function shareUrl(href, state) {
   for (const key of Object.keys(DEFAULT_SETTINGS))
     url.searchParams.set(
       key,
-      flags.includes(key) ? (state[key] ? "1" : "0") : String(state[key]),
+      flags.includes(key)
+        ? (state[key] ?? DEFAULT_SETTINGS[key])
+          ? "1"
+          : "0"
+        : String(state[key] ?? DEFAULT_SETTINGS[key]),
     );
   return url.href;
 }

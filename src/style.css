@@ -1126,3 +1126,23 @@ footer {
     letter-spacing: 0.7px;
   }
 }
+.canvas-footer > #country-name {
+  font-size: 34px;
+  line-height: 1.15;
+}
+#equation {
+  white-space: pre-line;
+  line-height: 1.8;
+}
+@media (max-width: 580px) {
+  .canvas-footer > #country-name {
+    font-size: 30px;
+  }
+  .canvas-footer {
+    align-items: flex-start;
+  }
+  .canvas-metrics {
+    max-width: 45%;
+    text-align: right;
+  }
+}

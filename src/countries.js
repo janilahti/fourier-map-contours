@@ -19,7 +19,8 @@ const wikipediaTitles = {
   VAT: "Vatican City",
 };
 export function wikipediaUrl(country) {
-  const title = wikipediaTitles[country.id] || country.name;
+  const title =
+    country.wikipedia || wikipediaTitles[country.id] || country.name;
   return `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replaceAll(" ", "_"))}`;
 }
 export function randomCountry(countries, currentId, random = Math.random) {

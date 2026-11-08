@@ -28,7 +28,7 @@ export function mainRing(geometry) {
       : geometry.coordinates.map((p) => p[0]);
   return rings.map(projectRing).sort((a, b) => area(b) - area(a))[0];
 }
-export function resample(ring, count = 1024) {
+export function resample(ring, count = 1024, { normalize = true } = {}) {
   const lengths = [0];
   for (let i = 1; i <= ring.length; i++) {
     const a = ring[i - 1],
@@ -45,6 +45,7 @@ export function resample(ring, count = 1024) {
       t = span ? (d - lengths[segment - 1]) / span : 0;
     return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
   });
+  if (!normalize) return points;
   const mean = points.reduce(
     (s, p) => [s[0] + p[0] / count, s[1] + p[1] / count],
     [0, 0],
@@ -119,15 +120,20 @@ export function fitContour(points, width, height, separate = false) {
 
 // The outline has priority: center its bounding box and use the available space.
 // Sources may overlap the outline and large circles may extend beyond the canvas.
-export function fitDrawing(points, width, height, separate) {
+export function fitDrawing(points, width, height, separate, context = []) {
   const minX = Math.min(...points.map((p) => p[0])),
     maxX = Math.max(...points.map((p) => p[0]));
   const minY = Math.min(...points.map((p) => p[1])),
     maxY = Math.max(...points.map((p) => p[1]));
   const padding = Math.max(8, Math.min(width, height) * 0.025);
+  const midX = (minX + maxX) / 2,
+    midY = (minY + maxY) / 2;
+  const all = points.concat(context);
+  const halfX = Math.max(...all.map((p) => Math.abs(p[0] - midX))),
+    halfY = Math.max(...all.map((p) => Math.abs(p[1] - midY)));
   const scale = Math.min(
-    (width - 2 * padding) / (maxX - minX || 1),
-    (height - 2 * padding) / (maxY - minY || 1),
+    (width - 2 * padding) / (2 * halfX || 1),
+    (height - 2 * padding) / (2 * halfY || 1),
   );
   const origin = [
     width / 2 - ((minX + maxX) * scale) / 2,

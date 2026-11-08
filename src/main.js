@@ -14,6 +14,9 @@ import {
   traceOpacity,
   BASE_PLAYBACK_RATE,
 } from "./animation.js";
+import { prepareGeometry } from "./geography.js";
+import { coordinateSeries, equationText } from "./equations.js";
+import { RenderLoop } from "./render-loop.js";
 import { wikipediaUrl, randomCountry } from "./countries.js";
 import { readSettings, shareUrl } from "./share.js";
 import { palettes, canvasColors } from "./palettes.js";
@@ -21,7 +24,8 @@ const $ = (s) => document.querySelector(s);
 $("#app").innerHTML =
   `<main><section class="intro"><div class="intro-kicker"><span>GEOGRAPHY, IN FREQUENCY SPACE</span><span>AN INTERACTIVE FOURIER ATLAS</span></div><div class="intro-body"><h1>A world drawn<br>by <em>circles.</em></h1><p class="lede">Every coastline is a rhythm.<br> Watch rotating vectors reconstruct the<br> outline of a country, one orbit at a time.</p></div></section>
 <section class="studio"><aside><div class="panel-heading"><span class="eyebrow">THE INSTRUMENT</span><span class="dot"></span></div>
-<div class="control-heading"><label for="country">Choose a country</label><button class="info-button" type="button" aria-label="About country outlines" aria-expanded="false" aria-controls="country-info">i</button><p class="info-tip" id="country-info" role="tooltip" hidden>Only the largest connected outer region is drawn. This Fourier drawing follows one continuous, closed path; separate islands would require pen lifts or artificial connecting lines.</p></div><select id="country" disabled><option>Loading atlas…</option></select><button id="random-country" type="button" disabled>↝ Random country &amp; build up</button>
+<div class="control-heading"><label for="country">Country or continent</label><button class="info-button" type="button" aria-label="About country outlines" aria-expanded="false" aria-controls="country-info">i</button><p class="info-tip" id="country-info" role="tooltip" hidden>Only the largest connected outer region is animated. Substantial nearby parts can appear in the reference outline. This Fourier drawing follows one continuous, closed path; separate islands would require pen lifts or artificial connecting lines.</p></div><select id="country" disabled><option>Loading atlas…</option></select><button id="random-country" type="button" disabled>↝ Random outline &amp; build up</button>
+<label for="detail"><span>Country map detail</span></label><select id="detail"><option value="50m">Standard · 1:50M</option><option value="10m">Detailed · 1:10M (loads on demand)</option></select><p id="detail-hint" class="hint">Continents use 1:110M geographic regions.</p>
 <div class="control-heading"><label for="mode">Fourier representation</label><button class="info-button" type="button" aria-label="About Fourier representations" aria-expanded="false" aria-controls="mode-info">i</button><p class="info-tip" id="mode-info" role="tooltip" hidden>Complex mode treats x + iy as one signal and adds one chain of rotating vectors. Separate mode reconstructs x and y independently; their crosshair marks the drawing point.</p></div><select id="mode"><option value="complex">Complex plane · z(t) = x(t) + iy(t)</option><option value="separate">Separate series · x(t) and y(t)</option></select>
 <div class="control-heading"><label for="count">Epicycles <output id="count-value">64</output></label><button class="info-button" type="button" aria-label="About epicycles" aria-expanded="false" aria-controls="count-info">i</button><p class="info-tip" id="count-info" role="tooltip" hidden>Epicycles are circles traced by rotating Fourier vectors. Radius is amplitude, rotation rate is frequency, and starting angle is phase. More circles recover finer detail. The count is per chain in separate mode.</p></div><div class="count-control"><button id="decrease" type="button" aria-label="Decrease epicycles by one">−</button><input id="count" type="range" min="1" max="256" value="64"><button id="increase" type="button" aria-label="Increase epicycles by one">+</button></div><div class="range-labels"><span>ABSTRACT</span><span>DETAILED</span></div><p class="hint" id="budget">64 rotating vectors, largest amplitudes first</p>
 <div class="growth-controls"><label><input id="grow" type="checkbox"> Build up epicycles</label><p class="hint"><span>Start with one and grow to 256.</span> <span>Older outlines gradually fade.</span></p></div>
@@ -29,16 +33,25 @@ $("#app").innerHTML =
 <label class="checkbox-row reverse-control"><input id="direction" type="checkbox"> Reverse drawing direction</label>
 <label for="palette"><span>Colour palette</span></label><select id="palette">${palettes.map((p) => `<option value="${p.id}">${p.name}</option>`).join("")}</select>
 
-<div class="toggles"><label><input id="circles" type="checkbox" checked> Show epicycles</label><label><input id="guide" type="checkbox" checked> Reference outline</label><label><input id="glow" type="checkbox" checked> Highlight the drawing tip</label><label><input id="values" type="checkbox" aria-controls="math-panel"> Show equations &amp; live values</label></div>
+<label for="notation"><span>Equation notation</span></label><select id="notation"><option value="phase">Amplitude &amp; phase</option><option value="sine-cosine">Sine &amp; cosine coefficients</option></select>
+<div class="toggles"><label><input id="nearby" type="checkbox" checked> Nearby significant islands</label><label><input id="circles" type="checkbox" checked> Show epicycles</label><label><input id="guide" type="checkbox" checked> Reference outline</label><label><input id="glow" type="checkbox" checked> Highlight the drawing tip</label><label><input id="values" type="checkbox" aria-controls="math-panel"> Show equations &amp; live values</label></div>
 <div class="actions"><button id="play" disabled>Ⅱ Pause</button><button id="reset" disabled aria-label="Restart drawing">↺ Restart</button></div>
 </aside><div class="drawing"><div class="canvas-heading"><span><span class="dot"></span> <span id="state">LOADING ATLAS</span></span><div class="canvas-tools"><span id="mode-label">COMPLEX SERIES</span><button id="share" type="button" disabled>Share view</button></div></div><div class="canvas-viewport"><canvas aria-label="Animated country outline drawn by Fourier epicycles" role="img"></canvas></div><div class="canvas-footer"><a id="country-name" href="https://en.wikipedia.org/" target="_blank" rel="noreferrer" title="Read about this country on Wikipedia">—</a><span class="canvas-metrics"><span id="canvas-count">64 epicycles</span><span id="progress" title="Estimated root-mean-square distance between matching points on the reconstructed and original outline, as a percentage of the outline’s bounding-box diagonal.">RMS error —</span></span></div><section id="math-panel" class="math-panel" aria-label="Fourier equations and live values" hidden><p id="equation"></p><p class="math-units">Coordinates are normalized to the selected outline. t is measured in cycles.</p><output id="live-values"></output><details id="coefficients"><summary>Largest coefficients · amplitude, frequency &amp; phase</summary><div id="coefficient-table"></div></details></section><div id="error" role="alert" hidden></div></div></section>
 <section class="notes"><div><span class="eyebrow">THE IDEA</span><h2>From a border to a wave.</h2><p>Sample an outline at equal distances. A discrete Fourier transform turns those points into rotating vectors. Add their tips together, and the border appears again.</p></div><div><span class="eyebrow">THE CIRCLES</span><h2>Small orbits. Fine details.</h2><p>Each epicycle has an amplitude (radius), frequency (rotation rate), and phase (starting angle). The largest amplitudes are drawn first. More circles recover finer details.</p></div><div><span class="eyebrow">TWO WAYS TO DRAW</span><h2>One plane, or two axes.</h2><p>The complex mode draws a single vector chain. Separate mode uses one chain for x and one for y; their crosshair locates the drawing tip. The circle count applies to each chain.</p></div></section></main>
-<footer><span class="footer-brand"><svg class="footer-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13"/><circle cx="16" cy="16" r="6"/></svg><span>BORDER / ORBIT <span class="muted">· A little mathematics, a whole world.</span></span></span><a class="repo-link" href="https://github.com/janilahti/fourier-map-contours" target="_blank" rel="noreferrer">Source and feedback on GitHub</a><span>Map data: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth</a> · 1:50m · Public domain</span></footer>
+<footer><span class="footer-brand"><svg class="footer-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13"/><circle cx="16" cy="16" r="6"/></svg><span>BORDER / ORBIT <span class="muted">· A little mathematics, a whole world.</span></span></span><a class="repo-link" href="https://github.com/janilahti/fourier-map-contours" target="_blank" rel="noreferrer">Source and feedback on GitHub</a><span>Map data: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth</a> · <span id="data-scale">1:50M</span> · Public domain</span></footer>
 <dialog id="share-dialog" aria-labelledby="share-title"><h2 id="share-title">Share this view</h2><p>The link keeps your country and settings. The drawing starts with a fresh trace.</p><label for="share-url">Link to this view</label><input id="share-url" type="url" readonly><div class="share-actions"><button id="copy-link" class="share-primary" type="button">Copy link</button><button id="native-share" type="button" hidden>Share…</button><form method="dialog"><button type="submit">Close</button></form></div><p id="share-status" role="status" aria-live="polite"></p></dialog>`;
 const canvas = $("canvas"),
   ctx = canvas.getContext("2d");
 let countries = [],
   points = [],
+  nearby = [],
+  reference = [],
+  selectionVersion = 0,
+  backgroundCanvas = null,
+  referencePath = null,
+  gridPath = null,
+  strokePaths = new WeakMap(),
+  termsCache = new Map(),
   complex = [],
   xs = [],
   ys = [],
@@ -55,34 +68,35 @@ const val = (id) => $(id).value;
 const direction = () => ($("#direction").checked ? -1 : 1);
 let colors = canvasColors(),
   lastReadout = 0;
-const equationComplex = "z(t) = Σ Aₖ exp(i(2πk t + φₖ)) = x(t) + i y(t)";
-const equationSeparate =
-  "x(t) = Σ Aₓ,ₖ cos(2πk t + φₓ,ₖ) · y(t) = Σ Aᵧ,ₖ cos(2πk t + φᵧ,ₖ)";
 function updateMath(tr) {
-  const separate = val("#mode") === "separate";
-  $("#equation").textContent = separate ? equationSeparate : equationComplex;
-  const groups = separate
-    ? [
-        ["x", tr.x],
-        ["y", tr.y],
-      ]
-    : [["z", tr.c]];
-  $("#coefficient-table").innerHTML = groups
+  const notation = val("#notation"),
+    series = coordinateSeries(tr, val("#mode") === "separate");
+  $("#equation").textContent = equationText(notation);
+  $("#coefficient-table").innerHTML = Object.entries(series)
     .map(
-      ([label, series]) =>
-        `<table><caption>${label}(t) · largest ${Math.min(8, series.length)} of ${series.length} terms</caption><thead><tr><th scope="col">k</th><th scope="col">A</th><th scope="col">φ (rad)</th></tr></thead><tbody>${series
+      ([name, terms]) =>
+        `<table><caption>${name}(t) · largest ${Math.min(8, terms.length)} of ${terms.length} real harmonics</caption><thead><tr><th scope="col">k</th>${notation === "phase" ? '<th scope="col">A</th><th scope="col">φ (rad)</th>' : `<th scope="col">${name === "x" ? "a" : "c"} (cos)</th><th scope="col">${name === "x" ? "b" : "d"} (sin)</th>`}</tr></thead><tbody>${terms
           .slice(0, 8)
           .map(
-            (c) =>
-              `<tr><td>${c.frequency}</td><td>${c.amplitude.toFixed(4)}</td><td>${Math.atan2(c.im, c.re).toFixed(3)}</td></tr>`,
+            (h) =>
+              `<tr><td>${h.frequency}</td><td>${(notation === "phase" ? h.amplitude : h.a).toFixed(4)}</td><td>${(notation === "phase" ? h.phase : h.b).toFixed(4)}</td></tr>`,
           )
           .join("")}</tbody></table>`,
     )
     .join("");
 }
+$("#notation").addEventListener("change", () => {
+  $("#values").checked = true;
+  $("#math-panel").hidden = false;
+  updateMath(terms());
+  loop.invalidate();
+});
+$("#nearby").addEventListener("input", layout);
+$("#guide").addEventListener("input", layout);
 $("#palette").addEventListener("change", () => {
   document.documentElement.dataset.palette = val("#palette");
   colors = canvasColors();
+  layout();
 });
 $("#values").addEventListener("change", () => {
   $("#math-panel").hidden = !$("#values").checked;
@@ -121,13 +135,62 @@ function reset(startCount = 1) {
     : null;
   last = 0;
   syncCount();
+  loop.setRunning(playing && !!animation);
 }
-function choose({ startCount = 1 } = {}) {
+const detailedCache = new Map();
+async function choose({ startCount = 1 } = {}) {
+  const version = ++selectionVersion;
+  $("#share").disabled = true;
   const feature = countries.find((f) => f.properties.id === val("#country"));
-  points = resample(mainRing(feature.geometry));
+  const continent = feature.properties.kind === "continent";
+  $("#detail").disabled = continent;
+  let geometry = feature.geometry;
+  $("#error").hidden = true;
+  if (continent || val("#detail") === "10m") {
+    $("#state").textContent = "LOADING OUTLINE";
+    try {
+      const id = feature.properties.id;
+      if (!detailedCache.has(id)) {
+        const response = await fetch(
+          `${import.meta.env.BASE_URL}data/${continent ? "continents" : "detailed"}/${id}.json`,
+        );
+        if (!response.ok) throw new Error("Map download failed");
+        detailedCache.set(id, await response.json());
+        if (detailedCache.size > 8)
+          detailedCache.delete(detailedCache.keys().next().value);
+      }
+      if (version !== selectionVersion) return;
+      geometry = detailedCache.get(id);
+    } catch (error) {
+      if (version !== selectionVersion) return;
+      if (continent) {
+        $("#country").value = "FIN";
+        await choose({ startCount });
+        $("#error").hidden = false;
+        $("#error").textContent =
+          "Continent unavailable. Showing Finland; select the continent again to retry.";
+        return;
+      }
+      $("#detail").value = "50m";
+      $("#error").hidden = false;
+      $("#error").textContent =
+        "Detailed outline unavailable. Using the standard map; select detailed again to retry.";
+    }
+  }
+  if (version !== selectionVersion) return;
+  const prepared = prepareGeometry(geometry);
+  points = prepared.points;
+  reference = prepared.reference;
+  nearby = prepared.nearby;
+  termsCache.clear();
   complex = transform(points);
   xs = transform(points.map((p) => [p[0], 0]));
   ys = transform(points.map((p) => [p[1], 0]));
+  $("#data-scale").textContent = continent
+    ? "1:110M"
+    : val("#detail") === "10m"
+      ? "1:10M"
+      : "1:50M";
   $("#country-name").textContent = feature.properties.name;
   $("#country-name").href = wikipediaUrl(feature.properties);
   $("#country-name").title =
@@ -139,9 +202,17 @@ function choose({ startCount = 1 } = {}) {
   reset(startCount);
   layout();
   updateMath(terms());
+  setPlaying(playing);
+  $("#share").disabled = false;
 }
 function terms(n = animation?.count ?? +val("#count")) {
-  return { c: complex.slice(0, n), x: xs.slice(0, n), y: ys.slice(0, n) };
+  if (!termsCache.has(n))
+    termsCache.set(n, {
+      c: complex.slice(0, n),
+      x: xs.slice(0, n),
+      y: ys.slice(0, n),
+    });
+  return termsCache.get(n);
 }
 function pointAt(u, tr) {
   return val("#mode") === "complex"
@@ -157,12 +228,46 @@ function layout() {
   canvas.height = Math.round(height * d);
   ctx.setTransform(d, 0, 0, d, 0, 0);
   if (points.length) {
-    const fit = fitDrawing(points, width, height, val("#mode") === "separate");
+    const fit = fitDrawing(
+      points,
+      width,
+      height,
+      val("#mode") === "separate",
+      reference.concat($("#nearby").checked ? nearby.flat() : []),
+    );
     xSource = fit.xSource;
     ySource = fit.ySource;
     scale = fit.scale;
     origin = fit.origin;
+    referencePath = new Path2D();
+    for (const ring of [reference, ...($("#nearby").checked ? nearby : [])]) {
+      ring.forEach((p, i) =>
+        i
+          ? referencePath.lineTo(...screen(p))
+          : referencePath.moveTo(...screen(p)),
+      );
+      referencePath.closePath();
+    }
   }
+  gridPath = new Path2D();
+  for (let x = 20; x < width; x += 28)
+    for (let y = 20; y < height; y += 28) gridPath.rect(x, y, 1, 1);
+  backgroundCanvas = document.createElement("canvas");
+  backgroundCanvas.width = canvas.width;
+  backgroundCanvas.height = canvas.height;
+  const bg = backgroundCanvas.getContext("2d");
+  bg.setTransform(d, 0, 0, d, 0, 0);
+  bg.fillStyle = colors.canvas;
+  bg.fillRect(0, 0, width, height);
+  bg.fillStyle = colors.grid;
+  if (gridPath) bg.fill(gridPath);
+  if ($("#guide").checked && referencePath) {
+    bg.strokeStyle = colors.guide;
+    bg.lineWidth = 1;
+    bg.stroke(referencePath);
+  }
+  strokePaths = new WeakMap();
+  loop.invalidate();
 }
 const screen = (p) => [origin[0] + p[0] * scale, origin[1] + p[1] * scale];
 function path(points, color, lineWidth = 1) {
@@ -204,14 +309,13 @@ function render(now) {
   const tr = terms();
   const t = animation?.phase ?? 0;
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = colors.canvas;
-  ctx.fillRect(0, 0, width, height);
-  ctx.fillStyle = colors.grid;
-  for (let x = 20; x < width; x += 28)
-    for (let y = 20; y < height; y += 28) ctx.fillRect(x, y, 1, 1);
+  if (backgroundCanvas?.width && backgroundCanvas?.height)
+    ctx.drawImage(backgroundCanvas, 0, 0, width, height);
+  else {
+    ctx.fillStyle = colors.canvas;
+    ctx.fillRect(0, 0, width, height);
+  }
   if (points.length) {
-    if ($("#guide").checked)
-      path([...points, points[0]].map(screen), colors.guide, 1);
     const u = t * direction();
     let end;
     if (val("#mode") === "complex") end = chain(tr.c, u, origin);
@@ -233,11 +337,21 @@ function render(now) {
               animation.time - stroke.completedAt,
               animation.growing,
             );
-      path(
-        stroke.samples.map((sample) => screen(sample.p)),
-        colors.trace,
-        colors.traceWidth,
-      );
+      let cached = strokePaths.get(stroke);
+      if (!cached) {
+        cached = { path: new Path2D(), index: 0 };
+        strokePaths.set(stroke, cached);
+      }
+      while (cached.index < stroke.samples.length) {
+        const point = screen(stroke.samples[cached.index].p);
+        cached.index
+          ? cached.path.lineTo(...point)
+          : cached.path.moveTo(...point);
+        cached.index++;
+      }
+      ctx.strokeStyle = colors.trace;
+      ctx.lineWidth = colors.traceWidth;
+      ctx.stroke(cached.path);
     }
     ctx.globalAlpha = 1;
     if ($("#glow").checked) {
@@ -265,19 +379,23 @@ function render(now) {
     ctx.fill();
     ctx.shadowBlur = 0;
   }
-  if (points.length && $("#values").checked && now - lastReadout >= 100) {
+  if (
+    points.length &&
+    $("#values").checked &&
+    (!playing || now - lastReadout >= 100)
+  ) {
     const p = pointAt(t * direction(), tr);
     $("#live-values").textContent =
       `t = ${(t * direction()).toFixed(3)} · x(t) = ${p[0].toFixed(4)} · y(t) = ${p[1].toFixed(4)}`;
     lastReadout = now;
   }
-  requestAnimationFrame(render);
 }
 $("#country").addEventListener("change", choose);
+$("#detail").addEventListener("change", () => choose());
 for (const id of ["#count", "#mode", "#direction", "#grow"])
   $(id).addEventListener("input", () => {
     reset();
-    layout();
+    if (id === "#mode") layout();
     $("#mode-label").textContent =
       val("#mode") === "complex" ? "COMPLEX SERIES" : "SEPARATE X / Y SERIES";
   });
@@ -358,6 +476,7 @@ for (const [id, step] of [
 syncSpeed();
 function setPlaying(value) {
   playing = value;
+  loop.setRunning(playing && !!animation);
   $("#play").textContent = playing ? "Ⅱ Pause" : "▶ Play";
   $("#state").textContent = playing ? "DRAWING THE WORLD" : "PAUSED";
 }
@@ -386,6 +505,9 @@ function currentSettings() {
     equations: $("#values").checked,
     coefficients: $("#coefficients").open,
     paused: !playing,
+    detail: val("#detail"),
+    notation: val("#notation"),
+    nearby: $("#nearby").checked,
   };
 }
 $("#share").addEventListener("click", () => {
@@ -422,8 +544,23 @@ $("#native-share").addEventListener("click", async () => {
         : "Sharing unavailable. Copy the link instead.";
   }
 });
+const loop = new RenderLoop(render, {
+  onResume: () => {
+    last = 0;
+  },
+});
+let inView = true;
+const visibility = () => loop.setVisible(!document.hidden && inView);
+document.addEventListener("visibilitychange", visibility);
+new IntersectionObserver((entries) => {
+  inView = entries[0].isIntersecting;
+  visibility();
+}).observe(canvas);
+for (const event of ["input", "change", "click"])
+  document.addEventListener(event, () => loop.invalidate());
 new ResizeObserver(layout).observe(canvas);
-requestAnimationFrame(render);
+visibility();
+loop.invalidate();
 async function loadAtlas() {
   try {
     const response = await fetch(
@@ -431,17 +568,47 @@ async function loadAtlas() {
     );
     if (!response.ok) throw Error(`Atlas request failed (${response.status})`);
     const data = await response.json();
-    countries = data.features.sort((a, b) =>
+    const continentResponse = await fetch(
+      `${import.meta.env.BASE_URL}data/continents/index.json`,
+    );
+    if (!continentResponse.ok) throw new Error("Continent atlas unavailable");
+    const continents = await continentResponse.json();
+    countries = [...data.features, ...continents.features].sort((a, b) =>
       a.properties.name.localeCompare(b.properties.name),
     );
-    $("#country").replaceChildren(
-      ...countries.map((f) => new Option(f.properties.name, f.properties.id)),
-    );
+    const groups = [
+      ["Continents", "continent"],
+      ["Countries & territories", "country"],
+    ].map(([label, kind]) => {
+      const group = document.createElement("optgroup");
+      group.label = label;
+      group.append(
+        ...countries
+          .filter(
+            (f) =>
+              (f.properties.kind === "continent") === (kind === "continent"),
+          )
+          .map(
+            (f) =>
+              new Option(
+                f.properties.id === "CONT_AUSTRALIA"
+                  ? "Australia (continent)"
+                  : f.properties.name,
+                f.properties.id,
+              ),
+          ),
+      );
+      return group;
+    });
+    $("#country").replaceChildren(...groups);
     const restored = readSettings(
       location.search,
       countries.map((f) => f.properties.id),
       palettes.map((p) => p.id),
     );
+    $("#detail").value = restored.detail;
+    $("#notation").value = restored.notation;
+    $("#nearby").checked = restored.nearby;
     $("#country").value = restored.country;
     $("#mode").value = restored.mode;
     $("#count").value = restored.count;
@@ -467,7 +634,7 @@ async function loadAtlas() {
     syncSpeed();
     $("#mode-label").textContent =
       restored.mode === "complex" ? "COMPLEX SERIES" : "SEPARATE X / Y SERIES";
-    choose({ startCount: restored.count });
+    await choose({ startCount: restored.count });
     $("#country").disabled = false;
     $("#random-country").disabled = false;
     $("#play").disabled = false;

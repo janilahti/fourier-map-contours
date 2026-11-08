@@ -5,6 +5,10 @@ const countries = ["FIN", "JPN", "GEO"],
   palettes = ["botanical", "lagoon", "twilight"];
 test("sharing round-trips every control and strips unrelated URL data", () => {
   const state = {
+    ...DEFAULT_SETTINGS,
+    detail: "10m",
+    notation: "sine-cosine",
+    nearby: false,
     country: "JPN",
     mode: "separate",
     count: 127,
