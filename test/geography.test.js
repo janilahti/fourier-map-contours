@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { prepareGeometry } from "../src/geography.js";
+import { area } from "../src/math.js";
+import { prepareGeometry, geographicPoint } from "../src/geography.js";
 const read = (path) =>
   JSON.parse(readFileSync(new URL("../public/data/" + path, import.meta.url)));
 const countries = read("countries.geojson").features;
@@ -61,4 +62,90 @@ test("startup catalog carries metadata only and covers every detailed-country as
   assert.equal(catalog.length, 242);
   assert.ok(catalog.every((f) => f.geometry === null));
   assert.deepEqual(catalog.map((f) => f.properties.id).sort(), ids);
+});
+
+test("date-line cuts are joined without bridging islands or filling interior holes", () => {
+  const geometry = {
+    type: "MultiPolygon",
+    coordinates: [
+      [
+        [
+          [179, 0],
+          [180, 0],
+          [180, 2],
+          [179, 2],
+          [179, 0],
+        ],
+        [
+          [179.2, 0.4],
+          [179.4, 0.4],
+          [179.4, 0.6],
+          [179.2, 0.6],
+          [179.2, 0.4],
+        ],
+      ],
+      [
+        [
+          [-180, 0],
+          [-179, 0],
+          [-179, 2],
+          [-180, 2],
+          [-180, 0],
+        ],
+      ],
+      [
+        [
+          [-179.8, 2.5],
+          [-179.3, 2.5],
+          [-179.3, 3],
+          [-179.8, 3],
+          [-179.8, 2.5],
+        ],
+      ],
+    ],
+  };
+  const prepared = prepareGeometry(geometry);
+  const geographic = prepared.reference.map((p) =>
+    geographicPoint(p, prepared.projection),
+  );
+  assert.ok(Math.abs(Math.min(...geographic.map((p) => p[0])) - 179) < 1e-10);
+  assert.ok(Math.abs(Math.max(...geographic.map((p) => p[0])) - 181) < 1e-10);
+  assert.ok(Math.max(...geographic.map((p) => p[1])) < 2.01);
+  assert.equal(prepared.nearby.length, 1);
+  assert.equal(prepared.fillPolygons.length, 2);
+  assert.equal(
+    prepared.fillPolygons[0].length,
+    2,
+    "mainland fill retains its hole",
+  );
+  assert.ok(
+    Math.abs(
+      area(prepared.fillPolygons[0][0]) / area(prepared.fillPolygons[0][1]) -
+        100,
+    ) < 1e-8,
+  );
+});
+
+test("Russia's main animated outline includes Chukotka beyond the date line at both data scales", () => {
+  for (const geometry of [
+    read("detailed/RUS.json"),
+    countries.find((f) => f.properties.id === "RUS").geometry,
+  ]) {
+    const prepared = prepareGeometry(geometry);
+    const ring = prepared.reference.map((p) =>
+      geographicPoint(p, prepared.projection),
+    );
+    assert.ok(Math.max(...ring.map((p) => p[0])) > 190);
+    assert.ok(Math.min(...ring.map((p) => p[0])) < 28);
+    for (let i = 1; i < ring.length; i++) {
+      if (
+        Math.abs(ring[i][0] - 180) < 1e-7 &&
+        Math.abs(ring[i - 1][0] - 180) < 1e-7
+      )
+        assert.ok(
+          Math.abs(ring[i][1] - ring[i - 1][1]) < 0.3,
+          "no artificial cut across mainland",
+        );
+    }
+  }
 });

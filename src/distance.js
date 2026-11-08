@@ -14,13 +14,12 @@ export function reconstructionMetrics(points, series, separate, projection) {
     Math.max(...points.map((p) => p[0])) - Math.min(...points.map((p) => p[0])),
     Math.max(...points.map((p) => p[1])) - Math.min(...points.map((p) => p[1])),
   );
-  const count = Math.min(128, points.length);
+  const count = points.length;
   let squared = 0,
     kmSquared = 0;
   for (let i = 0; i < count; i++) {
-    const index = Math.floor((i * points.length) / count),
-      t = index / points.length,
-      p = points[index];
+    const t = i / count,
+      p = points[i];
     const q = separate
       ? [evaluate(series.x, t)[0], evaluate(series.y, t)[0]]
       : evaluate(series.c, t);

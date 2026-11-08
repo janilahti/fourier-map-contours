@@ -1226,36 +1226,25 @@ footer {
   --vector-x: #00ffff;
   --vector-y: #ffbfff;
 }
-.axis-legend {
+.map-scale {
   position: absolute;
   top: 12px;
   left: 14px;
-  display: flex;
-  gap: 16px;
   z-index: 1;
-  pointer-events: none;
   font-size: 12px;
-  color: var(--canvas-text);
-}
-.axis-legend[hidden] {
-  display: none;
-}
-.axis-legend span::before {
-  content: "";
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  margin-right: 6px;
-}
-.axis-x::before {
-  background: var(--vector-x);
-}
-.axis-y::before {
-  background: var(--vector-y);
+  color: var(--canvas-muted);
+  pointer-events: none;
 }
 #position-value {
+  display: inline-grid;
+  grid-template-columns: 10ch 2ch 4ch;
+  justify-content: end;
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+#lap-number,
+#lap-percent {
+  text-align: right;
 }
 #distance-error {
   font-size: 12px;

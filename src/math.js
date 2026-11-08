@@ -157,7 +157,7 @@ export function reconstructionError(points, series, separate = false) {
     Math.max(...points.map((p) => p[0])) - Math.min(...points.map((p) => p[0])),
     Math.max(...points.map((p) => p[1])) - Math.min(...points.map((p) => p[1])),
   );
-  const samples = Math.min(128, points.length);
+  const samples = points.length;
   let squared = 0;
   for (let i = 0; i < samples; i++) {
     const index = Math.floor((i * points.length) / samples),

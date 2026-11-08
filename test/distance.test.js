@@ -55,3 +55,27 @@ test("projection inversion and full Fourier reconstruction have negligible dista
     Math.abs(m.percent - reconstructionError(points, truncated, false)) < 1e-12,
   );
 });
+
+test("RMS uses every sample, including harmonics invisible to a 128-point check", () => {
+  // sin(128 t) vanishes at all 128 formerly checked indices, although its
+  // RMS is 1/√2. The reference has a 2 by 2 bounding box, giving 25% error.
+  const points = Array.from({ length: 1024 }, (_, i) => [
+    Math.cos((2 * Math.PI * i) / 1024),
+    Math.sin((2 * Math.PI * 128 * i) / 1024),
+  ]);
+  const cosine = [1, -1].map((frequency) => ({ frequency, re: 0.5, im: 0 }));
+  const series = { c: cosine, x: cosine, y: [] };
+  for (const separate of [false, true]) {
+    const metrics = reconstructionMetrics(points, series, separate, {
+      cos: 1,
+      center: [0, 0],
+      size: 1,
+    });
+    assert.ok(Math.abs(metrics.percent - 25) < 1e-10);
+    assert.ok(
+      Math.abs(
+        metrics.kilometers - haversineKm([0, 0], [0, 1]) / Math.sqrt(2),
+      ) < 1e-8,
+    );
+  }
+});

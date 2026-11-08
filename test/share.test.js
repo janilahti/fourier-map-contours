@@ -16,6 +16,7 @@ test("sharing round-trips every control and strips unrelated URL data", () => {
     grow: true,
     circles: false,
     outline: false,
+    fill: true,
     highlight: false,
     equations: true,
     coefficients: true,
