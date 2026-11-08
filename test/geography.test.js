@@ -54,3 +54,11 @@ test("adding nearby reference regions keeps the main outline centered and all re
     );
   }
 });
+
+test("startup catalog carries metadata only and covers every detailed-country asset", () => {
+  const catalog = read("catalog.json").features,
+    ids = read("detailed/index.json");
+  assert.equal(catalog.length, 242);
+  assert.ok(catalog.every((f) => f.geometry === null));
+  assert.deepEqual(catalog.map((f) => f.properties.id).sort(), ids);
+});

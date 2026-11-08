@@ -1,14 +1,12 @@
 export const DEFAULT_SETTINGS = Object.freeze({
   country: "FIN",
-  detail: "50m",
-  notation: "phase",
-  nearby: true,
+  notation: "hidden",
   mode: "complex",
-  count: 64,
+  count: 1,
   speed: 1,
   reverse: false,
   palette: "botanical",
-  grow: false,
+  grow: true,
   circles: true,
   outline: true,
   highlight: true,
@@ -17,7 +15,6 @@ export const DEFAULT_SETTINGS = Object.freeze({
   paused: false,
 });
 const flags = [
-  "nearby",
   "reverse",
   "grow",
   "circles",
@@ -44,9 +41,7 @@ export function readSettings(search, countryIds, paletteIds) {
     state.mode = params.get("mode");
   if (paletteIds.includes(params.get("palette")))
     state.palette = params.get("palette");
-  if (["50m", "10m"].includes(params.get("detail")))
-    state.detail = params.get("detail");
-  if (["phase", "sine-cosine"].includes(params.get("notation")))
+  if (["hidden", "phase", "sine-cosine"].includes(params.get("notation")))
     state.notation = params.get("notation");
   state.count = number(params, "count", 1, 256, 1);
   state.speed = number(params, "speed", 0.25, 3, 0.25);
@@ -54,7 +49,12 @@ export function readSettings(search, countryIds, paletteIds) {
     const value = params.get(key);
     if (value === "1" || value === "0") state[key] = value === "1";
   }
-  if (state.grow && !params.has("count")) state.count = 1;
+  if (!params.has("count")) state.count = state.grow ? 1 : 64;
+  if (params.has("notation"))
+    state.equations =
+      state.notation !== "hidden" && params.get("equations") !== "0";
+  else if (state.equations) state.notation = "phase";
+  if (!state.equations) state.notation = "hidden";
   return state;
 }
 export function shareUrl(href, state) {

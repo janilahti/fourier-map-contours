@@ -6,6 +6,7 @@ import {
   traceOpacity,
   highlightOpacity,
   CYCLE_SECONDS,
+  growthRate,
 } from "../src/animation.js";
 const point = (phase, count) => [
   Math.cos(phase * 2 * Math.PI) * count,
@@ -58,16 +59,17 @@ test("progression begins with one, accelerates in steps, and stops at the limit"
     limit: 256,
   });
   assert.equal(animation.count, 1);
-  for (let n = 2; n <= 8; n++) {
+  for (const n of [2, 4, 8, 16, 32, 64]) {
     animation.advance(CYCLE_SECONDS);
     assert.equal(animation.count, n);
   }
-  animation.advance(CYCLE_SECONDS);
-  assert.equal(animation.count, 10);
-  assert.equal(nextCount(16), 20);
-  assert.equal(nextCount(32), 40);
-  assert.equal(nextCount(64), 80);
-  assert.equal(nextCount(128), 160);
+  assert.equal(nextCount(16), 32);
+  assert.equal(nextCount(32), 64);
+  assert.equal(nextCount(64), 96);
+  assert.equal(nextCount(128), 192);
+  assert.equal(growthRate(1), 4);
+  assert.equal(growthRate(8), 2);
+  assert.equal(growthRate(64), 1);
   assert.equal(nextCount(256, Infinity), 256);
   animation.advance(CYCLE_SECONDS * 35);
   assert.equal(animation.count, 256);
@@ -117,7 +119,7 @@ test("a shared build-up view continues from the shared epicycle count", () => {
   });
   assert.equal(animation.count, 16);
   animation.advance(CYCLE_SECONDS);
-  assert.equal(animation.count, 20);
+  assert.equal(animation.count, 32);
   const capped = new ContourAnimation(point, {
     growing: true,
     startCount: 9999,

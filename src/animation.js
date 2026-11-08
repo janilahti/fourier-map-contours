@@ -4,19 +4,12 @@ export const HIGHLIGHT_SECONDS = 1.1;
 export const MAX_EPICYCLES = 256;
 
 export function nextCount(count, limit = MAX_EPICYCLES) {
-  const step =
-    count < 8
-      ? 1
-      : count < 16
-        ? 2
-        : count < 32
-          ? 4
-          : count < 64
-            ? 8
-            : count < 128
-              ? 16
-              : 32;
+  const step = count < 64 ? count : count < 128 ? 32 : 64;
   return Math.min(MAX_EPICYCLES, limit, count + step);
+}
+
+export function growthRate(count) {
+  return count < 8 ? 4 : count < 32 ? 2 : 1;
 }
 
 // Growth traces fade immediately; ordinary traces hold for one extra cycle.

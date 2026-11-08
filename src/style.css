@@ -1146,3 +1146,45 @@ footer {
     text-align: right;
   }
 }
+@media (min-width: 900px) {
+  main,
+  footer {
+    max-width: 1920px;
+  }
+  .studio {
+    height: var(--studio-height, calc(100dvh - 32px));
+    min-height: 300px;
+    align-items: stretch;
+    grid-template-columns: 310px minmax(0, 1fr);
+  }
+  .studio > aside {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+  .drawing {
+    height: 100%;
+    min-height: 0;
+  }
+  .canvas-viewport {
+    min-height: 0;
+  }
+  .info-tip {
+    position: fixed;
+    left: var(--info-left);
+    top: var(--info-top);
+    width: 270px;
+    max-height: calc(100dvh - 32px);
+    overflow: auto;
+  }
+  .info-tip::before {
+    display: none;
+  }
+}
+@media (min-width: 900px) {
+  .math-panel {
+    max-height: min(230px, calc(100% - 145px));
+  }
+}

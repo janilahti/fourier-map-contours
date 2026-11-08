@@ -7,6 +7,7 @@ import sys
 root = Path(__file__).resolve().parents[1]
 base = json.loads((root / 'public/data/countries.geojson').read_text())
 ids = {feature['properties']['id'] for feature in base['features']}
+catalog = {'type': 'FeatureCollection', 'features': [dict(feature, geometry=None) for feature in base['features']]}
 source_countries, source_regions = map(Path, sys.argv[1:3])
 countries = json.loads(source_countries.read_text())
 regions = json.loads(source_regions.read_text())
@@ -18,6 +19,7 @@ continents.mkdir(exist_ok=True)
 def save(path, value):
     path.write_text(json.dumps(value, separators=(',', ':')))
 
+save(root / 'public/data/catalog.json', catalog)
 available = []
 for feature in countries['features']:
     code = feature['properties']['ADM0_A3']

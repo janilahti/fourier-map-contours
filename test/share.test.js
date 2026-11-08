@@ -6,9 +6,7 @@ const countries = ["FIN", "JPN", "GEO"],
 test("sharing round-trips every control and strips unrelated URL data", () => {
   const state = {
     ...DEFAULT_SETTINGS,
-    detail: "10m",
     notation: "sine-cosine",
-    nearby: false,
     country: "JPN",
     mode: "separate",
     count: 127,
@@ -48,9 +46,37 @@ test("malformed and out-of-range settings are validated before use", () => {
   assert.equal(state.outline, false);
   assert.equal(
     readSettings("?count=Infinity&speed=NaN", countries, palettes).count,
-    64,
+    DEFAULT_SETTINGS.count,
   );
   assert.equal(readSettings("?count=&speed=", countries, palettes).speed, 1);
   assert.equal(readSettings("?speed=1.38", countries, palettes).speed, 1.5);
   assert.equal(readSettings("?grow=1", countries, palettes).count, 1);
+});
+
+test("new views build up by default while old visibility flags and manual-mode links still work", () => {
+  const fresh = readSettings("", countries, palettes);
+  assert.equal(fresh.count, 1);
+  assert.equal(fresh.grow, true);
+  assert.equal(fresh.notation, "hidden");
+  assert.equal(readSettings("?grow=0", countries, palettes).count, 64);
+  assert.equal(
+    readSettings("?notation=phase", countries, palettes).equations,
+    true,
+  );
+  assert.equal(
+    readSettings("?notation=phase&equations=0", countries, palettes).notation,
+    "hidden",
+  );
+  assert.equal(
+    readSettings("?equations=1", countries, palettes).notation,
+    "phase",
+  );
+  const legacy = readSettings(
+    "?detail=50m&nearby=0&notation=hidden",
+    countries,
+    palettes,
+  );
+  assert.equal("detail" in legacy, false);
+  assert.equal("nearby" in legacy, false);
+  assert.equal(legacy.equations, false);
 });
