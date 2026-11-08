@@ -57,8 +57,16 @@ export function prepareGeometry(geometry) {
     if (nearby.length >= 12) break;
   }
   return {
+    projection: { cos, center, size },
     points: samples.map(normalize),
     reference: main.map(normalize),
     nearby,
   };
+}
+
+export function geographicPoint(point, projection) {
+  return [
+    (point[0] * projection.size + projection.center[0]) / projection.cos,
+    -(point[1] * projection.size + projection.center[1]),
+  ];
 }

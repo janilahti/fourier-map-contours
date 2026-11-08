@@ -1188,3 +1188,86 @@ footer {
     max-height: min(230px, calc(100% - 145px));
   }
 }
+:root {
+  --circle-width: 1.1;
+  --circle-x: rgba(128, 184, 210, 0.52);
+  --circle-y: rgba(222, 184, 125, 0.52);
+  --vector-x: rgba(155, 207, 230, 0.72);
+  --vector-y: rgba(236, 208, 161, 0.72);
+}
+:root[data-palette="lagoon"] {
+  --circle-x: rgba(125, 193, 235, 0.55);
+  --circle-y: rgba(244, 174, 145, 0.55);
+  --vector-x: rgba(158, 216, 249, 0.75);
+  --vector-y: rgba(250, 204, 175, 0.75);
+}
+:root[data-palette="terracotta"] {
+  --circle-x: rgba(129, 210, 208, 0.55);
+  --circle-y: rgba(202, 169, 230, 0.55);
+  --vector-x: rgba(172, 233, 230, 0.75);
+  --vector-y: rgba(223, 199, 244, 0.75);
+}
+:root[data-palette="twilight"] {
+  --circle-x: rgba(140, 198, 239, 0.55);
+  --circle-y: rgba(236, 174, 200, 0.55);
+  --vector-x: rgba(181, 220, 247, 0.75);
+  --vector-y: rgba(250, 206, 224, 0.75);
+}
+:root[data-palette="midnight"] {
+  --circle-x: rgba(133, 190, 239, 0.55);
+  --circle-y: rgba(230, 193, 121, 0.55);
+  --vector-x: rgba(175, 215, 249, 0.75);
+  --vector-y: rgba(249, 220, 166, 0.75);
+}
+:root[data-palette="high-visibility"] {
+  --circle-width: 1.8;
+  --circle-x: #00ffff;
+  --circle-y: #ffbfff;
+  --vector-x: #00ffff;
+  --vector-y: #ffbfff;
+}
+.axis-legend {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  display: flex;
+  gap: 16px;
+  z-index: 1;
+  pointer-events: none;
+  font-size: 12px;
+  color: var(--canvas-text);
+}
+.axis-legend[hidden] {
+  display: none;
+}
+.axis-legend span::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.axis-x::before {
+  background: var(--vector-x);
+}
+.axis-y::before {
+  background: var(--vector-y);
+}
+#position-value {
+  font-size: 11px;
+}
+#distance-error {
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  color: var(--canvas-muted);
+}
+.math-panel {
+  bottom: calc(var(--footer-height, 84px) + 8px);
+  max-height: min(230px, calc(100% - var(--footer-height, 84px) - 85px));
+}
+@media (max-width: 580px) {
+  .math-panel {
+    max-height: min(180px, calc(100% - var(--footer-height, 84px) - 70px));
+  }
+}

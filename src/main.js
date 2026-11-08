@@ -1,18 +1,14 @@
 import "./style.css";
-import {
-  TAU,
-  transform,
-  evaluate,
-  fitDrawing,
-  reconstructionError,
-} from "./math.js";
+import { TAU, transform, evaluate, fitDrawing } from "./math.js";
 import {
   ContourAnimation,
   highlightOpacity,
   traceOpacity,
   BASE_PLAYBACK_RATE,
   growthRate,
+  CYCLE_SECONDS,
 } from "./animation.js";
+import { reconstructionMetrics, formatDistance } from "./distance.js";
 import { prepareGeometry } from "./geography.js";
 import { coordinateSeries, equationText } from "./equations.js";
 import { RenderLoop } from "./render-loop.js";
@@ -28,13 +24,14 @@ $("#app").innerHTML =
 <div class="control-heading"><label for="count">Epicycles <output id="count-value">1</output></label><button class="info-button" type="button" aria-label="About epicycles" aria-expanded="false" aria-controls="count-info">i</button><p class="info-tip" id="count-info" role="tooltip" hidden>Epicycles are circles traced by rotating Fourier vectors. Radius is amplitude, rotation rate is frequency, and starting angle is phase. More circles recover finer detail. The count is per chain in separate mode.</p></div><div class="count-control"><button id="decrease" type="button" aria-label="Decrease epicycles by one">−</button><input id="count" type="range" min="1" max="256" value="1"><button id="increase" type="button" aria-label="Increase epicycles by one">+</button></div><div class="range-labels"><span>ABSTRACT</span><span>DETAILED</span></div><p class="hint" id="budget">1 rotating vector, largest amplitudes first</p>
 <div class="growth-controls"><label><input id="grow" type="checkbox" checked> Build up epicycles</label><p class="hint"><span>Build from one to 256 epicycles.</span> <span>Quick early steps, then finer detail.</span></p></div>
 <label for="speed"><span>Drawing speed <output id="speed-value">1×</output></span></label><div class="count-control"><button id="slower" type="button" aria-label="Decrease drawing speed one notch">−</button><input id="speed" type="range" min="0.25" max="3" step="0.25" value="1"><button id="faster" type="button" aria-label="Increase drawing speed one notch">+</button></div>
+<label for="position"><span>Position in lap <output id="position-value">Lap 1 · 0%</output></span></label><div class="count-control"><button id="step-back" type="button" aria-label="Step animation backward by five percent of a lap" disabled>←</button><input id="position" type="range" min="0" max="1000" step="1" value="0" disabled><button id="step-forward" type="button" aria-label="Step animation forward by five percent of a lap" disabled>→</button></div><p class="hint">Scrub or step in either direction. Play continues from that point.</p>
 <label class="checkbox-row reverse-control"><input id="direction" type="checkbox"> Reverse drawing direction</label>
 <label for="palette"><span>Colour palette</span></label><select id="palette">${palettes.map((p) => `<option value="${p.id}">${p.name}</option>`).join("")}</select>
 
 <label for="notation"><span>Equation notation</span></label><select id="notation"><option value="hidden">Hidden</option><option value="phase">Amplitude &amp; phase</option><option value="sine-cosine">Sine &amp; cosine coefficients</option></select>
 <div class="toggles"><label><input id="circles" type="checkbox" checked> Show epicycles</label><label><input id="guide" type="checkbox" checked> Reference outline</label><label><input id="glow" type="checkbox" checked> Highlight the drawing tip</label></div>
 <div class="actions"><button id="play" disabled>Ⅱ Pause</button><button id="reset" disabled aria-label="Restart drawing">↺ Restart</button></div>
-</aside><div class="drawing"><div class="canvas-heading"><span><span class="dot"></span> <span id="state">LOADING ATLAS</span></span><div class="canvas-tools"><span id="mode-label">COMPLEX SERIES</span><button id="share" type="button" disabled>Share view</button></div></div><div class="canvas-viewport"><canvas aria-label="Animated country outline drawn by Fourier epicycles" role="img"></canvas></div><div class="canvas-footer"><a id="country-name" href="https://en.wikipedia.org/" target="_blank" rel="noreferrer" title="Read about this country on Wikipedia">—</a><span class="canvas-metrics"><span id="canvas-count">1 epicycle</span><span id="progress" title="Estimated root-mean-square distance between matching points on the reconstructed and original outline, as a percentage of the outline’s bounding-box diagonal.">RMS error —</span></span></div><section id="math-panel" class="math-panel" aria-label="Fourier equations and live values" hidden><p id="equation"></p><p class="math-units">Coordinates are normalized to the selected outline. t is measured in cycles.</p><output id="live-values"></output><details id="coefficients"><summary>Largest coefficients · amplitude, frequency &amp; phase</summary><div id="coefficient-table"></div></details></section><div id="error" role="alert" hidden></div></div></section>
+</aside><div class="drawing"><div class="canvas-heading"><span><span class="dot"></span> <span id="state">LOADING ATLAS</span></span><div class="canvas-tools"><span id="mode-label">COMPLEX SERIES</span><button id="share" type="button" disabled>Share view</button></div></div><div class="canvas-viewport"><div id="axis-legend" class="axis-legend" hidden><span class="axis-x">x chain</span><span class="axis-y">y chain</span></div><canvas aria-label="Animated country outline drawn by Fourier epicycles" role="img"></canvas></div><div class="canvas-footer"><a id="country-name" href="https://en.wikipedia.org/" target="_blank" rel="noreferrer" title="Read about this country on Wikipedia">—</a><span class="canvas-metrics"><span id="canvas-count">1 epicycle</span><span id="progress" title="Estimated root-mean-square distance between matching points on the reconstructed and original outline, as a percentage of the outline’s bounding-box diagonal.">RMS error —</span><span id="distance-error" title="Estimated RMS great-circle distance over a full lap between corresponding original and reconstructed samples on a spherical Earth. This is not a nearest-border distance.">≈ — km</span></span></div><section id="math-panel" class="math-panel" aria-label="Fourier equations and live values" hidden><p id="equation"></p><p class="math-units">Coordinates are normalized to the selected outline. t is measured in cycles.</p><output id="live-values"></output><details id="coefficients"><summary>Largest coefficients · amplitude, frequency &amp; phase</summary><div id="coefficient-table"></div></details></section><div id="error" role="alert" hidden></div></div></section>
 <section class="notes"><div><span class="eyebrow">THE IDEA</span><h2>From a border to a wave.</h2><p>Sample an outline at equal distances. A discrete Fourier transform turns those points into rotating vectors. Add their tips together, and the border appears again.</p></div><div><span class="eyebrow">THE CIRCLES</span><h2>Small orbits. Fine details.</h2><p>Each epicycle has an amplitude (radius), frequency (rotation rate), and phase (starting angle). The largest amplitudes are drawn first. More circles recover finer details.</p></div><div><span class="eyebrow">TWO WAYS TO DRAW</span><h2>One plane, or two axes.</h2><p>The complex mode draws a single vector chain. Separate mode uses one chain for x and one for y; their crosshair locates the drawing tip. The circle count applies to each chain.</p></div></section></main>
 <footer><span class="footer-brand"><svg class="footer-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13"/><circle cx="16" cy="16" r="6"/></svg><span>BORDER / ORBIT <span class="muted">· A little mathematics, a whole world.</span></span></span><a class="repo-link" href="https://github.com/janilahti/fourier-map-contours" target="_blank" rel="noreferrer">Source and feedback on GitHub</a><span>Map data: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth</a> · <span id="data-scale">1:10M</span> · Public domain</span></footer>
 <dialog id="share-dialog" aria-labelledby="share-title"><h2 id="share-title">Share this view</h2><p>The link keeps your country and settings. The drawing starts with a fresh trace.</p><label for="share-url">Link to this view</label><input id="share-url" type="url" readonly><div class="share-actions"><button id="copy-link" class="share-primary" type="button">Copy link</button><button id="native-share" type="button" hidden>Share…</button><form method="dialog"><button type="submit">Close</button></form></div><p id="share-status" role="status" aria-live="polite"></p></dialog>`;
@@ -44,6 +41,7 @@ let countries = [],
   points = [],
   nearby = [],
   reference = [],
+  projection = null,
   selectionVersion = 0,
   backgroundCanvas = null,
   referencePath = null,
@@ -107,9 +105,17 @@ function syncCount() {
     val("#mode") === "separate"
       ? `${count} ${count === 1 ? "epicycle" : "epicycles"} / axis`
       : `${count} ${count === 1 ? "epicycle" : "epicycles"}`;
-  if (points.length)
-    $("#progress").textContent =
-      `RMS error ${reconstructionError(points, terms(count), val("#mode") === "separate").toFixed(2)}%`;
+  if (points.length) {
+    const metrics = reconstructionMetrics(
+      points,
+      terms(count),
+      val("#mode") === "separate",
+      projection,
+    );
+    $("#progress").textContent = `RMS error ${metrics.percent.toFixed(2)}%`;
+    $("#distance-error").textContent =
+      `≈ ${formatDistance(metrics.kilometers)}`;
+  }
   updateMath(terms(count));
 }
 function reset(startCount = 1) {
@@ -126,6 +132,7 @@ function reset(startCount = 1) {
     : null;
   last = 0;
   syncCount();
+  syncTransport();
   loop.setRunning(playing && !!animation);
 }
 const detailedCache = new Map();
@@ -192,6 +199,7 @@ async function loadSelection({ startCount = 1 } = {}) {
   }
   if (version !== selectionVersion) return;
   const prepared = prepareGeometry(geometry);
+  projection = prepared.projection;
   points = prepared.points;
   reference = prepared.reference;
   nearby = prepared.nearby;
@@ -217,6 +225,8 @@ async function loadSelection({ startCount = 1 } = {}) {
   updateMath(terms());
   setPlaying(playing);
   $("#share").disabled = false;
+  $("#position").disabled = false;
+  syncTransport();
 }
 function terms(n = animation?.count ?? +val("#count")) {
   if (!termsCache.has(n))
@@ -291,7 +301,7 @@ function path(points, color, lineWidth = 1) {
   ctx.lineWidth = lineWidth;
   ctx.stroke();
 }
-function chain(tr, u, start, rotation = 0) {
+function chain(tr, u, start, rotation = 0, axis = null) {
   let p = start.slice();
   for (const c of tr) {
     const angle = TAU * c.frequency * u + rotation,
@@ -301,10 +311,23 @@ function chain(tr, u, start, rotation = 0) {
     if ($("#circles").checked) {
       ctx.beginPath();
       ctx.arc(...p, c.amplitude * scale, 0, TAU);
-      ctx.strokeStyle = colors.circle;
+      ctx.strokeStyle =
+        axis === "x"
+          ? colors.circleX
+          : axis === "y"
+            ? colors.circleY
+            : colors.circle;
       ctx.lineWidth = colors.circleWidth;
       ctx.stroke();
-      path([p, q], colors.vector, colors.circleWidth);
+      path(
+        [p, q],
+        axis === "x"
+          ? colors.vectorX
+          : axis === "y"
+            ? colors.vectorY
+            : colors.vector,
+        colors.circleWidth,
+      );
     }
     p = q;
   }
@@ -324,6 +347,10 @@ function render(now) {
     );
     if (animation.count !== previousCount) syncCount();
   }
+  syncTransport();
+  const legendHidden = val("#mode") !== "separate" || !$("#circles").checked;
+  if ($("#axis-legend").hidden !== legendHidden)
+    $("#axis-legend").hidden = legendHidden;
   const tr = terms();
   const t = animation?.phase ?? 0;
   ctx.clearRect(0, 0, width, height);
@@ -338,12 +365,13 @@ function render(now) {
     let end;
     if (val("#mode") === "complex") end = chain(tr.c, u, origin);
     else {
-      const a = chain(tr.x, u, xSource);
-      const b = chain(tr.y, u, ySource, Math.PI / 2);
+      const a = chain(tr.x, u, xSource, 0, "x");
+      const b = chain(tr.y, u, ySource, Math.PI / 2, "y");
       end = [a[0], b[1]];
       if ($("#circles").checked) {
         ctx.setLineDash([3, 5]);
-        path([a, end, b], colors.crosshair, 1);
+        path([a, end], colors.vectorX, 1);
+        path([end, b], colors.vectorY, 1);
         ctx.setLineDash([]);
       }
     }
@@ -520,6 +548,40 @@ $("#random-country").addEventListener("click", () => {
   choose();
   setPlaying(true);
 });
+function syncTransport() {
+  if (!animation) return;
+  $("#position").value = Math.round(animation.phase * 1000);
+  $("#position-value").textContent =
+    `Lap ${animation.cycle + 1} · ${Math.round(animation.phase * 100)}%`;
+  $("#step-back").disabled = animation.time <= 0;
+  $("#step-forward").disabled = false;
+}
+function seek(time) {
+  if (!animation) return;
+  const previousCount = animation.count;
+  setPlaying(false);
+  animation.seek(time);
+  last = 0;
+  lastReadout = 0;
+  strokePaths = new WeakMap();
+  if (animation.count !== previousCount) syncCount();
+  syncTransport();
+  loop.invalidate();
+}
+$("#position").addEventListener("input", () => {
+  if (animation)
+    seek(
+      (animation.cycle + Math.min(0.999999, +val("#position") / 1000)) *
+        CYCLE_SECONDS,
+    );
+});
+for (const [id, step] of [
+  ["#step-back", -0.05],
+  ["#step-forward", 0.05],
+])
+  $(id).addEventListener("click", () => {
+    if (animation) seek(animation.time + step * CYCLE_SECONDS);
+  });
 $("#reset").addEventListener("click", () => reset());
 function currentSettings() {
   return {
@@ -605,6 +667,12 @@ window.addEventListener("resize", requestStudioSize);
 window.addEventListener("scroll", requestStudioSize, { passive: true });
 new ResizeObserver(requestStudioSize).observe($(".intro"));
 sizeStudio();
+new ResizeObserver((entries) => {
+  $(".drawing").style.setProperty(
+    "--footer-height",
+    `${entries[0].target.getBoundingClientRect().height}px`,
+  );
+}).observe($(".canvas-footer"));
 new ResizeObserver(layout).observe(canvas);
 visibility();
 loop.invalidate();

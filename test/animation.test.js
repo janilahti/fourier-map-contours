@@ -102,12 +102,13 @@ test("build-up traces start fading one cycle earlier than ordinary traces", () =
   const age = growing.time - growing.strokes[0].completedAt;
   assert.ok(traceOpacity(age, true) < 1);
   assert.equal(traceOpacity(age, false), 1);
-  assert.equal(traceOpacity(20, true), 0.5);
+  assert.equal(traceOpacity(10, true), 0.5);
+  assert.equal(traceOpacity(20, true), 0);
   assert.equal(traceOpacity(40, true), 0);
   growing.advance(39.9);
   assert.ok(
     growing.strokes.every(
-      (s) => s.completedAt === null || growing.time - s.completedAt < 40,
+      (s) => s.completedAt === null || growing.time - s.completedAt < 20,
     ),
   );
 });
@@ -125,4 +126,37 @@ test("a shared build-up view continues from the shared epicycle count", () => {
     startCount: 9999,
   });
   assert.equal(capped.count, 256);
+});
+
+test("seeking backward and forward reconstructs the correct lap, count and tip", () => {
+  const a = new ContourAnimation(point, { growing: true });
+  a.seek(6.5 * CYCLE_SECONDS);
+  assert.equal(a.cycle, 6);
+  assert.equal(a.count, 64);
+  assert.ok(Math.abs(a.phase - 0.5) < 1e-12);
+  let tip = a.strokes.at(-1).samples.at(-1).p;
+  assert.ok(Math.hypot(tip[0] + 64, tip[1]) < 1e-10);
+  a.seek(1.25 * CYCLE_SECONDS);
+  assert.equal(a.count, 2);
+  assert.equal(a.cycle, 1);
+  tip = a.strokes.at(-1).samples.at(-1).p;
+  assert.ok(Math.hypot(tip[0], tip[1] - 2) < 1e-10);
+  a.advance(0.1);
+  assert.ok(a.phase > 0.25);
+  a.seek(-1);
+  assert.equal(a.time, 0);
+  assert.equal(a.count, 1);
+  a.seek(1e7);
+  assert.equal(a.count, 256);
+  assert.ok(a.strokes.length <= 2);
+  assert.throws(() => a.seek(Infinity), RangeError);
+});
+test("seeking in manual mode preserves count and retains ordinary fade history", () => {
+  const a = new ContourAnimation(point, { count: 17 });
+  a.seek(4.3 * CYCLE_SECONDS);
+  assert.equal(a.count, 17);
+  assert.ok(a.strokes.length <= 4);
+  assert.ok(a.strokes.every((s) => s.count === 17));
+  const samples = a.strokes.at(-1).samples;
+  assert.ok(Math.abs(Math.hypot(...samples.at(-1).p) - 17) < 1e-10);
 });

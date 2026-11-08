@@ -18,7 +18,9 @@ export function traceOpacity(age, growing = false) {
     0,
     Math.min(
       1,
-      1 - (age - (growing ? 0 : CYCLE_SECONDS)) / (2 * CYCLE_SECONDS),
+      1 -
+        (age - (growing ? 0 : CYCLE_SECONDS)) /
+          ((growing ? 1 : 2) * CYCLE_SECONDS),
     ),
   );
 }
@@ -40,6 +42,8 @@ export class ContourAnimation {
     this.count = growing
       ? Math.max(1, Math.min(this.limit, Math.round(startCount) || 1))
       : count;
+    this.startCount = this.count;
+    this.curveCache = new Map();
     this.time = 0;
     this.cycle = 0;
     this.strokes = [this.newStroke()];
@@ -53,6 +57,51 @@ export class ContourAnimation {
   }
   get phase() {
     return (this.time - this.cycle * CYCLE_SECONDS) / CYCLE_SECONDS;
+  }
+  countAtCycle(cycle) {
+    let count = this.startCount;
+    if (this.growing)
+      for (let i = 0; i < cycle && count < this.limit; i++)
+        count = nextCount(count, this.limit);
+    return count;
+  }
+  curve(count) {
+    if (!this.curveCache.has(count))
+      this.curveCache.set(
+        count,
+        Array.from({ length: 1025 }, (_, i) => this.pointAt(i / 1024, count)),
+      );
+    return this.curveCache.get(count);
+  }
+  // Reconstruct only the visible recent laps, so seeking far ahead stays bounded.
+  seek(seconds) {
+    if (!Number.isFinite(seconds))
+      throw new RangeError("Animation position must be finite");
+    this.time = Math.max(0, seconds);
+    this.cycle = Math.floor(this.time / CYCLE_SECONDS);
+    this.count = this.countAtCycle(this.cycle);
+    this.strokes = [];
+    const first = Math.max(0, this.cycle - (this.growing ? 1 : 3));
+    for (let cycle = first; cycle <= this.cycle; cycle++) {
+      const count = this.countAtCycle(cycle),
+        completedAt = cycle < this.cycle ? (cycle + 1) * CYCLE_SECONDS : null;
+      if (
+        completedAt !== null &&
+        traceOpacity(this.time - completedAt, this.growing) <= 0
+      )
+        continue;
+      const phase = cycle < this.cycle ? 1 : this.phase,
+        curve = this.curve(count),
+        samples = [];
+      for (let i = 0; i <= Math.floor(phase * 1024); i++)
+        samples.push({
+          p: curve[i],
+          time: cycle * CYCLE_SECONDS + (i * CYCLE_SECONDS) / 1024,
+        });
+      if ((phase * 1024) % 1)
+        samples.push({ p: this.pointAt(phase, count), time: this.time });
+      this.strokes.push({ count, samples, completedAt });
+    }
   }
   advance(seconds) {
     const target = this.time + seconds;

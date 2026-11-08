@@ -20,9 +20,20 @@ export function canvasColors(element = document.documentElement) {
       "tip",
       "highlight",
       "crosshair",
-    ].map((name) => [name, style.getPropertyValue(`--${name}`).trim()]),
+      "circleX",
+      "circleY",
+      "vectorX",
+      "vectorY",
+    ].map((name) => [
+      name,
+      style
+        .getPropertyValue(
+          `--${name.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase())}`,
+        )
+        .trim(),
+    ]),
   );
-  colors.circleWidth = Number(style.getPropertyValue("--circle-width")) || 0.8;
+  colors.circleWidth = Number(style.getPropertyValue("--circle-width")) || 1.1;
   colors.traceWidth = Number(style.getPropertyValue("--trace-width")) || 2;
   return colors;
 }
