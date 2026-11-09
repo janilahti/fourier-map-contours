@@ -24,7 +24,9 @@ test("every detailed country and continent produces finite continuous drawing sa
   const continents = read("continents/index.json").features;
   assert.equal(continents.length, 7);
   for (const f of continents) {
-    const p = prepareGeometry(read("continents/" + f.properties.id + ".json"));
+    const p = prepareGeometry(read("continents/" + f.properties.id + ".json"), {
+      continent: true,
+    });
     assert.ok(p.points.flat().every(Number.isFinite), f.properties.name);
   }
 });
@@ -161,13 +163,78 @@ function contains(ring, [x, y]) {
   return inside;
 }
 
-test("Greenland is retained in North America's reference map, separate from its animated mainland", () => {
-  const p = prepareGeometry(read("continents/CONT_NORTH_AMERICA.json"));
-  const rings = [p.reference, ...p.nearby].map((r) =>
+function continentRings(id) {
+  const p = prepareGeometry(read(`continents/CONT_${id}.json`), {
+    continent: true,
+  });
+  return [p.reference, ...p.nearby].map((r) =>
     r.map((v) => geographicPoint(v, p.projection)),
   );
-  assert.equal(contains(rings[0], [-42, 72]), false);
-  assert.ok(rings.slice(1).some((r) => contains(r, [-42, 72])));
+}
+
+test("North America includes Central America and visible Caribbean islands, with Greenland omitted", () => {
+  const rings = continentRings("NORTH_AMERICA");
+  for (const point of [
+    [-90.5, 14.6],
+    [-84.1, 9.95],
+    [-79.52, 8.98],
+  ])
+    assert.ok(
+      contains(rings[0], point),
+      `Central America is part of the animated mainland: ${point}`,
+    );
+  for (const point of [
+    [-79, 22],
+    [-70.7, 19],
+    [-77.2, 18.1],
+    [-66.5, 18.2],
+  ])
+    assert.ok(
+      rings.slice(1).some((r) => contains(r, point)),
+      `visible Caribbean island: ${point}`,
+    );
+  for (const point of [
+    [-42, 72],
+    [-48, 65],
+    [-35, 78],
+  ])
+    assert.ok(
+      rings.every((r) => !contains(r, point)),
+      "Greenland is not drawn",
+    );
+});
+
+test("Europe shows Great Britain, a united Ireland, and Iceland without filling surrounding seas", () => {
+  const rings = continentRings("EUROPE");
+  for (const point of [
+    [-1, 52],
+    [-8, 53],
+    [-6.7, 54.7],
+    [-19, 65],
+  ])
+    assert.ok(
+      rings.slice(1).some((r) => contains(r, point)),
+      `reference island: ${point}`,
+    );
+  for (const sea of [
+    [-5, 53],
+    [-8, 58],
+    [-15, 60],
+  ])
+    assert.ok(
+      rings.every((r) => !contains(r, sea)),
+      `sea remains sea: ${sea}`,
+    );
+  const ireland = rings.find((r) => contains(r, [-8, 53]));
+  assert.ok(
+    contains(ireland, [-6.7, 54.7]),
+    "Northern Ireland joins the same island outline",
+  );
+});
+
+test("Africa retains Madagascar as a reference region", () => {
+  const rings = continentRings("AFRICA");
+  assert.ok(rings.slice(1).some((r) => contains(r, [47, -19])));
 });
 
 test("Antarctica uses a polar coastline without world-sheet seam and pole closure edges", () => {

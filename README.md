@@ -43,10 +43,6 @@ Source: [Natural Earth, Admin 0 – Countries, 1:50m](https://www.naturalearthda
 
 Optional Google Fonts are loaded by CSS; system serif and sans-serif fallbacks work without that service. Vite builds the site. [polygon-clipping](https://github.com/mfogel/polygon-clipping) joins map regions that touch across the antimeridian. Dependency notices are bundled in [third-party-notices.txt](public/third-party-notices.txt). Production has no JavaScript CDN dependency.
 
-### Crimea (Krim) and Ukraine
-
-Crimea is included in Ukraine’s main outline. The original Natural Earth country file assigned it to Russia; the preparation script unions Natural Earth’s Crimea disputed-area polygon (B89) into Ukraine and subtracts it from Russia, using matching 1:10M and 1:50M boundaries. Source URLs and hashes are recorded in `public/data/sources.json`. This correction applies to detailed data and the hidden fallback.
-
 ## License
 
 The application code is available under the [MIT License](LICENSE). Natural Earth map data remains public domain; third-party dependencies and Google Fonts retain their respective licenses.
@@ -69,19 +65,19 @@ The page includes static Open Graph and Twitter card metadata and a 1200 × 630 
 
 ## Map detail, secondary regions, and continents
 
-The selector offers 242 countries/territories and seven Natural Earth geographic continents. Only the largest connected outer region is animated. Continents use [Natural Earth 1:110M geographic regions](https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_geography_regions_polys.geojson), including its conventional Europe/Asia division. They are not assembled from political country memberships. Australia follows the source's continent definition and links to Wikipedia's continent article.
+The selector offers 242 countries/territories and seven Natural Earth geographic continents. Only the largest connected outer region is animated. Continents use [Natural Earth 1:110M geographic regions](https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_geography_regions_polys.geojson), including its conventional Europe/Asia division. Central America is joined to North America; major Caribbean islands use actual 1:110M country coastlines. Greenland is intentionally omitted from this continent view. Great Britain, Ireland, Iceland, and Madagascar are included as reference regions, using the same coastline source rather than geographic-region envelopes. Australia follows the source's continent definition and links to Wikipedia's continent article.
 
-Countries automatically use [1:10M country data](https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_10m_admin_0_countries.geojson) which provides more coastline detail and covers every existing country choice. There is no resolution selector; continents automatically use 1:110M instead. The 1:50M file is retained only as a hidden fallback if a detailed-country download fails. Both new datasets are public domain. Geometry source URLs and SHA-256 hashes are recorded in `public/data/sources.json`. After obtaining the four original GeoJSON files, regenerate the lazy assets with:
+Countries automatically use [1:10M country data](https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_10m_admin_0_countries.geojson) which provides more coastline detail and covers every existing country choice. There is no resolution selector; continents automatically use 1:110M instead. The 1:50M file is retained only as a hidden fallback if a detailed-country download fails. These datasets are public domain. Geometry source URLs and SHA-256 hashes are recorded in `public/data/sources.json`. After obtaining the five original GeoJSON files, regenerate the lazy assets with:
 
 ```sh
-python scripts/prepare-map-data.py /path/to/ne_10m_admin_0_countries.geojson /path/to/ne_110m_geography_regions_polys.geojson /path/to/ne_10m_admin_0_disputed_areas.geojson /path/to/ne_50m_admin_0_breakaway_disputed_areas.geojson
+python scripts/prepare-map-data.py /path/to/ne_10m_admin_0_countries.geojson /path/to/ne_110m_geography_regions_polys.geojson /path/to/ne_10m_admin_0_disputed_areas.geojson /path/to/ne_50m_admin_0_breakaway_disputed_areas.geojson /path/to/ne_110m_admin_0_countries.geojson
 ```
 
 Initial country metadata is about 19.7 KB and continent metadata about 1 KB; neither contains geometry. The 2.27 MB 1:50M fallback is not loaded on a normal visit. All 1:10M country geometries total about 12.38 MB, but only the selected country is fetched (roughly 69 KiB for Finland, 70 KiB for Italy, and 825 KiB for the USA). Continent geometry is also fetched on demand. Up to eight fetched geometries are cached in memory. Stale responses cannot replace a newer selection; failed detailed-country downloads fall back to standard data.
 
 The trade-off: 1:10M improves the reference coastlines, but adds download and parsing cost. Animation still samples 1,024 points and retains at most 512 signed-frequency vectors per chain, so small features cannot all survive the Fourier approximation. Loading just one detailed outline avoids downloading the whole atlas. A representative Node check on this environment took about 52–63 ms to prepare Finland, Italy, or USA and compute all three transforms; these are illustrative host timings, not mobile/browser guarantees.
 
-Nearby significant islands and similar secondary regions are included automatically in the reference map, with no separate selector. The filter retains regions with at least 0.5% of the main region's projected area and a bounding-box gap no greater than 35% of its diagonal, capped at twelve. All regions use the main region's projection and normalization. This retains Sicily/Sardinia and Corsica, while avoiding thousands of tiny Finnish islands and remote French territories. Fitting keeps the animated main region centered while allowing room for the retained reference regions. The reference-outline and map-fill controls apply to the main region and these retained secondary regions.
+Nearby significant islands and similar secondary regions are included automatically in the reference map, with no separate selector. The filter retains regions with at least 0.5% of the main region's projected area and a bounding-box gap no greater than 35% of its diagonal, capped at twelve. At continent scale the area threshold is 0.025%, capped at 32, so major islands remain visible without adding thousands of tiny islands. All regions use the main region's projection and normalization. This retains Sicily/Sardinia and Corsica, while avoiding thousands of tiny Finnish islands and remote French territories. Fitting keeps the animated main region centered while allowing room for the retained reference regions. The reference-outline and map-fill controls apply to the main region and these retained secondary regions.
 
 ## Equation notation
 

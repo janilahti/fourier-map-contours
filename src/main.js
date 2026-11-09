@@ -201,7 +201,7 @@ async function loadSelection({ startCount = 1 } = {}) {
     }
   }
   if (version !== selectionVersion) return;
-  const prepared = prepareGeometry(geometry);
+  const prepared = prepareGeometry(geometry, { continent });
   projection = prepared.projection;
   points = prepared.points;
   reference = prepared.reference;

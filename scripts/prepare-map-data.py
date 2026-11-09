@@ -6,8 +6,8 @@ import sys
 import subprocess
 
 root = Path(__file__).resolve().parents[1]
-if len(sys.argv) != 5:
-    raise SystemExit("Usage: prepare-map-data.py countries-10m regions-110m disputed-10m disputed-50m")
+if len(sys.argv) != 6:
+    raise SystemExit("Usage: prepare-map-data.py countries-10m regions-110m disputed-10m disputed-50m countries-110m")
 base = json.loads((root / 'public/data/countries.geojson').read_text())
 ids = {feature['properties']['id'] for feature in base['features']}
 catalog = {'type': 'FeatureCollection', 'features': [dict(feature, geometry=None) for feature in base['features']]}
@@ -52,3 +52,5 @@ save(root / 'public/data/sources.json', {
 })
 
 subprocess.run(["node", str(root / "scripts/correct-map-data.mjs"), *sys.argv[3:5]], check=True)
+
+subprocess.run(["node", str(root / "scripts/compose-continents.mjs"), str(source_regions), sys.argv[5]], check=True)

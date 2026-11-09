@@ -63,7 +63,7 @@ function polarProject(ring) {
   });
 }
 
-export function prepareGeometry(geometry) {
+export function prepareGeometry(geometry, { continent = false } = {}) {
   const input =
     geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
   const polar = input.some((p) => p[0].some((v) => v[1] < -89.9));
@@ -117,7 +117,8 @@ export function prepareGeometry(geometry) {
   ];
   const nearby = [];
   for (const candidate of sorted.slice(1)) {
-    if (candidate.area < sorted[0].area * 0.005) continue;
+    if (candidate.area < sorted[0].area * (continent ? 0.00025 : 0.005))
+      continue;
     const ring = project(candidate.raw);
     const b = bbox(ring),
       gap = Math.hypot(
@@ -131,7 +132,7 @@ export function prepareGeometry(geometry) {
         ...candidate.polygon.slice(1).map((r) => project(r).map(normalize)),
       ]);
     }
-    if (nearby.length >= 12) break;
+    if (nearby.length >= (continent ? 32 : 12)) break;
   }
   return {
     projection: {
