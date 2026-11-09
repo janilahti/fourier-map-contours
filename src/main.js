@@ -3,7 +3,7 @@ import { TAU, transform, evaluate, fitDrawing } from "./math.js";
 import {
   ContourAnimation,
   highlightOpacity,
-  traceOpacity,
+  traceSampleOpacity,
   BASE_PLAYBACK_RATE,
   growthRate,
   CYCLE_SECONDS,
@@ -216,7 +216,8 @@ async function loadSelection({ startCount = 1 } = {}) {
     : fallback
       ? "1:50M fallback"
       : "1:10M";
-  $("#map-scale").textContent = `Map data · ${$("#data-scale").textContent}`;
+  $("#map-scale").textContent =
+    `Map data · ${$("#data-scale").textContent}${projection.kind === "south-polar" ? " · polar view" : ""}`;
   $("#country-name").textContent = feature.properties.name;
   $("#country-name").href = wikipediaUrl(feature.properties);
   $("#country-name").title =
@@ -384,16 +385,9 @@ function render(now) {
       }
     }
     for (const stroke of animation.strokes) {
-      ctx.globalAlpha =
-        stroke.completedAt === null
-          ? 1
-          : traceOpacity(
-              animation.time - stroke.completedAt,
-              animation.growing,
-            );
       let cached = strokePaths.get(stroke);
       if (!cached) {
-        cached = { path: new Path2D(), index: 0 };
+        cached = { path: new Path2D(), parts: [], index: 0 };
         strokePaths.set(stroke, cached);
       }
       while (cached.index < stroke.samples.length) {
@@ -401,11 +395,40 @@ function render(now) {
         cached.index
           ? cached.path.lineTo(...point)
           : cached.path.moveTo(...point);
+        if (cached.index) {
+          const sample = stroke.samples[cached.index];
+          const start = stroke.samples[0].time;
+          const bucket = Math.min(
+            63,
+            Math.floor((sample.time - start) / (CYCLE_SECONDS / 64)),
+          );
+          if (!cached.parts[bucket]) {
+            const path = new Path2D();
+            path.moveTo(...screen(stroke.samples[cached.index - 1].p));
+            cached.parts[bucket] = {
+              path,
+              time: start + ((bucket + 0.5) * CYCLE_SECONDS) / 64,
+            };
+          }
+          cached.parts[bucket].path.lineTo(...point);
+        }
         cached.index++;
       }
       ctx.strokeStyle = colors.trace;
       ctx.lineWidth = colors.traceWidth;
-      ctx.stroke(cached.path);
+      if (stroke.completedAt === null) {
+        ctx.globalAlpha = 1;
+        ctx.stroke(cached.path);
+      } else {
+        for (const part of cached.parts) {
+          if (!part) continue;
+          ctx.globalAlpha = traceSampleOpacity(
+            animation.time - part.time,
+            animation.growing,
+          );
+          if (ctx.globalAlpha > 0) ctx.stroke(part.path);
+        }
+      }
     }
     ctx.globalAlpha = 1;
     if ($("#glow").checked) {
@@ -457,7 +480,10 @@ for (const [id, step] of [
   ["#increase", 1],
 ])
   $(id).addEventListener("click", () => {
-    $("#count").value = Math.max(1, Math.min(MAX_EPICYCLES, +val("#count") + step));
+    $("#count").value = Math.max(
+      1,
+      Math.min(MAX_EPICYCLES, +val("#count") + step),
+    );
     reset();
   });
 const infoButtons = [...document.querySelectorAll(".info-button")];
@@ -581,7 +607,7 @@ $("#position").addEventListener("input", () => {
     seek(
       (animation.cycle + Math.min(0.999999, +val("#position") / 1000)) *
         CYCLE_SECONDS,
-  MAX_EPICYCLES,
+      MAX_EPICYCLES,
     );
 });
 for (const [id, step] of [

@@ -1,10 +1,13 @@
-"""Extract lazy-loaded Natural Earth assets. Inputs: 10M countries, 110M regions."""
+"""Extract Natural Earth assets from countries, regions, and disputed-area files."""
 import hashlib
 import json
 from pathlib import Path
 import sys
+import subprocess
 
 root = Path(__file__).resolve().parents[1]
+if len(sys.argv) != 5:
+    raise SystemExit("Usage: prepare-map-data.py countries-10m regions-110m disputed-10m disputed-50m")
 base = json.loads((root / 'public/data/countries.geojson').read_text())
 ids = {feature['properties']['id'] for feature in base['features']}
 catalog = {'type': 'FeatureCollection', 'features': [dict(feature, geometry=None) for feature in base['features']]}
@@ -47,3 +50,5 @@ save(root / 'public/data/sources.json', {
     ],
     'detailed_countries': len(available), 'continents': len(features),
 })
+
+subprocess.run(["node", str(root / "scripts/correct-map-data.mjs"), *sys.argv[3:5]], check=True)

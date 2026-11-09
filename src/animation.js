@@ -12,7 +12,7 @@ export function growthRate(count) {
   return count < 8 ? 4 : count < 32 ? 2 : 1;
 }
 
-// Growth traces fade immediately; ordinary traces hold for one extra cycle.
+// Fade envelope: growth fades immediately; ordinary traces hold an extra lap.
 export function traceOpacity(age, growing = false) {
   return Math.max(
     0,
@@ -23,6 +23,11 @@ export function traceOpacity(age, growing = false) {
           ((growing ? 1 : 2) * CYCLE_SECONDS),
     ),
   );
+}
+// Age each piece from when it was drawn. Keep it until the next pass reaches
+// the same position, then fade it; the still-undrawn end never dims early.
+export function traceSampleOpacity(age, growing = false) {
+  return traceOpacity(age - CYCLE_SECONDS, growing);
 }
 export function highlightOpacity(age) {
   return Math.max(0, Math.min(1, 1 - age / HIGHLIGHT_SECONDS));
@@ -81,13 +86,13 @@ export class ContourAnimation {
     this.cycle = Math.floor(this.time / CYCLE_SECONDS);
     this.count = this.countAtCycle(this.cycle);
     this.strokes = [];
-    const first = Math.max(0, this.cycle - (this.growing ? 1 : 3));
+    const first = Math.max(0, this.cycle - (this.growing ? 2 : 4));
     for (let cycle = first; cycle <= this.cycle; cycle++) {
       const count = this.countAtCycle(cycle),
         completedAt = cycle < this.cycle ? (cycle + 1) * CYCLE_SECONDS : null;
       if (
         completedAt !== null &&
-        traceOpacity(this.time - completedAt, this.growing) <= 0
+        traceSampleOpacity(this.time - completedAt, this.growing) <= 0
       )
         continue;
       const phase = cycle < this.cycle ? 1 : this.phase,
@@ -130,7 +135,7 @@ export class ContourAnimation {
     this.strokes = this.strokes.filter(
       (stroke) =>
         stroke.completedAt === null ||
-        traceOpacity(this.time - stroke.completedAt, this.growing) > 0,
+        traceSampleOpacity(this.time - stroke.completedAt, this.growing) > 0,
     );
   }
 }

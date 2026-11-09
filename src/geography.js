@@ -36,22 +36,53 @@ function joinDateLine(polygons) {
     : polygons;
 }
 
-export function prepareGeometry(geometry) {
-  const polygons = joinDateLine(
-    geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates,
+// A world-sheet polygon closes Antarctica down both sides of the date line
+// and across the pole. Those edges are not coastline in a polar view.
+function polarCoast(ring) {
+  if (!ring.some((p) => p[1] < -89.9)) return ring;
+  const seamLatitude = (sign) =>
+    Math.max(
+      ...ring
+        .filter((p) => Math.abs(p[0] - sign * 180) < 1e-6)
+        .map((p) => p[1]),
+    );
+  const east = seamLatitude(1),
+    west = seamLatitude(-1);
+  return ring.filter(
+    ([lon, lat]) =>
+      lat > -89.9 &&
+      !(Math.abs(lon - 180) < 1e-6 && lat < east - 1e-6) &&
+      !(Math.abs(lon + 180) < 1e-6 && lat < west - 1e-6),
   );
+}
+function polarProject(ring) {
+  return polarCoast(ring).map(([lon, lat]) => {
+    const angle = (lon * Math.PI) / 180,
+      radius = 90 + lat;
+    return [radius * Math.sin(angle), -radius * Math.cos(angle)];
+  });
+}
+
+export function prepareGeometry(geometry) {
+  const input =
+    geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
+  const polar = input.some((p) => p[0].some((v) => v[1] < -89.9));
+  const polygons = polar ? input : joinDateLine(input);
+  const initialProject = polar ? polarProject : projectRing;
   const sorted = polygons
     .map((polygon) => ({
       polygon,
       raw: polygon[0],
-      area: area(projectRing(polygon[0])),
+      area: area(initialProject(polygon[0])),
     }))
     .sort((a, b) => b.area - a.area);
   const mainRaw = sorted[0].raw;
-  const latitude = mainRaw.reduce((s, p) => s + p[1], 0) / mainRaw.length,
-    cos = Math.cos((latitude * Math.PI) / 180);
-  const main = projectRing(mainRaw),
-    anchor = main.reduce((s, p) => s + p[0] / cos, 0) / main.length;
+  const latitude = mainRaw.reduce((s, p) => s + p[1], 0) / mainRaw.length;
+  const cos = polar ? 1 : Math.cos((latitude * Math.PI) / 180);
+  const main = initialProject(mainRaw);
+  const anchor = polar
+    ? 0
+    : main.reduce((s, p) => s + p[0] / cos, 0) / main.length;
   const samples = resample(main, 1024, { normalize: false });
   const center = samples.reduce(
     (a, p) => [a[0] + p[0] / samples.length, a[1] + p[1] / samples.length],
@@ -75,8 +106,9 @@ export function prepareGeometry(geometry) {
   ];
   const bounds = bbox(main),
     diagonal = Math.hypot(bounds[2] - bounds[0], bounds[3] - bounds[1]);
-  const project = (ring) =>
-    unwrap(ring, anchor).map(([lon, lat]) => [lon * cos, -lat]);
+  const project = polar
+    ? polarProject
+    : (ring) => unwrap(ring, anchor).map(([lon, lat]) => [lon * cos, -lat]);
   const fillPolygons = [
     [
       main.map(normalize),
@@ -102,7 +134,12 @@ export function prepareGeometry(geometry) {
     if (nearby.length >= 12) break;
   }
   return {
-    projection: { cos, center, size },
+    projection: {
+      kind: polar ? "south-polar" : "equirectangular",
+      cos,
+      center,
+      size,
+    },
     points: samples.map(normalize),
     reference: main.map(normalize),
     nearby,
@@ -111,8 +148,9 @@ export function prepareGeometry(geometry) {
 }
 
 export function geographicPoint(point, projection) {
-  return [
-    (point[0] * projection.size + projection.center[0]) / projection.cos,
-    -(point[1] * projection.size + projection.center[1]),
-  ];
+  const x = point[0] * projection.size + projection.center[0];
+  const y = point[1] * projection.size + projection.center[1];
+  if (projection.kind === "south-polar")
+    return [(Math.atan2(x, -y) * 180) / Math.PI, Math.hypot(x, y) - 90];
+  return [x / projection.cos, -y];
 }

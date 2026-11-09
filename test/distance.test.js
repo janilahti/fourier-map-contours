@@ -79,3 +79,39 @@ test("RMS uses every sample, including harmonics invisible to a 128-point check"
     );
   }
 });
+
+test("polar projection inversion preserves known coordinates and spherical reconstruction errors", () => {
+  const projection = { kind: "south-polar", center: [0, 0], size: 1 };
+  for (const [point, expected] of [
+    [
+      [0, -10],
+      [0, -80],
+    ],
+    [
+      [10, 0],
+      [90, -80],
+    ],
+    [
+      [0, 10],
+      [180, -80],
+    ],
+    [
+      [-10, 0],
+      [-90, -80],
+    ],
+  ]) {
+    const actual = geographicPoint(point, projection);
+    assert.ok(
+      Math.hypot(actual[0] - expected[0], actual[1] - expected[1]) < 1e-10,
+    );
+  }
+  const points = Array.from({ length: 64 }, (_, i) => [
+    10 * Math.sin((i * Math.PI) / 32),
+    -10 * Math.cos((i * Math.PI) / 32),
+  ]);
+  const series = { c: [{ frequency: 0, re: 0, im: 0 }], x: [], y: [] };
+  for (const separate of [false, true]) {
+    const m = reconstructionMetrics(points, series, separate, projection);
+    assert.ok(Math.abs(m.kilometers - haversineKm([0, -90], [0, -80])) < 1e-8);
+  }
+});

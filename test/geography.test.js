@@ -149,3 +149,68 @@ test("Russia's main animated outline includes Chukotka beyond the date line at b
     }
   }
 });
+
+function contains(ring, [x, y]) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i],
+      [xj, yj] = ring[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi)
+      inside = !inside;
+  }
+  return inside;
+}
+
+test("Greenland is retained in North America's reference map, separate from its animated mainland", () => {
+  const p = prepareGeometry(read("continents/CONT_NORTH_AMERICA.json"));
+  const rings = [p.reference, ...p.nearby].map((r) =>
+    r.map((v) => geographicPoint(v, p.projection)),
+  );
+  assert.equal(contains(rings[0], [-42, 72]), false);
+  assert.ok(rings.slice(1).some((r) => contains(r, [-42, 72])));
+});
+
+test("Antarctica uses a polar coastline without world-sheet seam and pole closure edges", () => {
+  for (const geometry of [
+    read("continents/CONT_ANTARCTICA.json"),
+    read("detailed/ATA.json"),
+    countries.find((f) => f.properties.id === "ATA").geometry,
+  ]) {
+    const p = prepareGeometry(geometry);
+    assert.equal(p.projection.kind, "south-polar");
+    const geographic = p.reference.map((v) => geographicPoint(v, p.projection));
+    assert.ok(
+      geographic.every((v) => v[1] > -87 && v[1] < -60),
+      "all main-ring points are coastline, not pole/seam closure",
+    );
+    const span = (axis) =>
+      Math.max(...p.reference.map((v) => v[axis])) -
+      Math.min(...p.reference.map((v) => v[axis]));
+    assert.ok(span(0) / span(1) > 0.7 && span(0) / span(1) < 1.5);
+    assert.ok(p.points.flat().every(Number.isFinite));
+  }
+});
+
+test("Crimea is connected to Ukraine's main outline at detailed and fallback scales and excluded from Russia", () => {
+  for (const scale of ["detailed", "fallback"]) {
+    const get = (id) =>
+      scale === "detailed"
+        ? read(`detailed/${id}.json`)
+        : countries.find((f) => f.properties.id === id).geometry;
+    const p = prepareGeometry(get("UKR"));
+    const ring = p.reference.map((v) => geographicPoint(v, p.projection));
+    for (const city of [
+      [34.1, 44.95],
+      [33.53, 44.6],
+      [36.47, 45.35],
+      [30.52, 50.45],
+    ])
+      assert.ok(contains(ring, city), `${scale}: ${city}`);
+    const russian = get("RUS");
+    const polygons =
+      russian.type === "Polygon" ? [russian.coordinates] : russian.coordinates;
+    assert.ok(
+      polygons.every((polygon) => !contains(polygon[0], [34.1, 44.95])),
+    );
+  }
+});
