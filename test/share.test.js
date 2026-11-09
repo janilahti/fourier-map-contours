@@ -9,7 +9,7 @@ test("sharing round-trips every control and strips unrelated URL data", () => {
     notation: "sine-cosine",
     country: "JPN",
     mode: "separate",
-    count: 127,
+    count: 512,
     speed: 2.25,
     reverse: true,
     palette: "twilight",
@@ -41,7 +41,7 @@ test("malformed and out-of-range settings are validated before use", () => {
   assert.equal(state.country, "FIN");
   assert.equal(state.mode, "complex");
   assert.equal(state.palette, "botanical");
-  assert.equal(state.count, 256);
+  assert.equal(state.count, 512);
   assert.equal(state.speed, 0.25);
   assert.equal(state.reverse, false);
   assert.equal(state.outline, false);

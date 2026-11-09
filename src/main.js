@@ -7,6 +7,7 @@ import {
   BASE_PLAYBACK_RATE,
   growthRate,
   CYCLE_SECONDS,
+  MAX_EPICYCLES,
 } from "./animation.js";
 import { reconstructionMetrics, formatDistance } from "./distance.js";
 import { prepareGeometry } from "./geography.js";
@@ -21,10 +22,10 @@ $("#app").innerHTML =
 <section class="studio"><aside><div class="panel-heading"><span class="eyebrow">THE INSTRUMENT</span><span class="dot"></span></div>
 <div class="control-heading"><label for="country">Country or continent</label><button class="info-button" type="button" aria-label="About country outlines" aria-expanded="false" aria-controls="country-info">i</button><p class="info-tip" id="country-info" role="tooltip" hidden>Only the largest connected outer region is animated. Substantial nearby parts can appear in the reference outline. This Fourier drawing follows one continuous, closed path; separate islands would require pen lifts or artificial connecting lines.</p></div><select id="country" disabled><option>Loading atlas…</option></select><button id="random-country" type="button" disabled>↝ Random outline &amp; build up</button>
 <div class="control-heading"><label for="mode">Fourier representation</label><button class="info-button" type="button" aria-label="About Fourier representations" aria-expanded="false" aria-controls="mode-info">i</button><p class="info-tip" id="mode-info" role="tooltip" hidden>Complex mode treats x + iy as one signal and adds one chain of rotating vectors. Separate mode reconstructs x and y independently; their crosshair marks the drawing point.</p></div><select id="mode"><option value="complex">Complex plane · z(t) = x(t) + iy(t)</option><option value="separate">Separate series · x(t) and y(t)</option></select>
-<div class="control-heading"><label for="count">Epicycles <output id="count-value">1</output></label><button class="info-button" type="button" aria-label="About epicycles" aria-expanded="false" aria-controls="count-info">i</button><p class="info-tip" id="count-info" role="tooltip" hidden>Epicycles are circles traced by rotating Fourier vectors. Radius is amplitude, rotation rate is frequency, and starting angle is phase. More circles recover finer detail. The count is per chain in separate mode.</p></div><div class="count-control"><button id="decrease" type="button" aria-label="Decrease epicycles by one">−</button><input id="count" type="range" min="1" max="256" value="1"><button id="increase" type="button" aria-label="Increase epicycles by one">+</button></div><div class="range-labels"><span>ABSTRACT</span><span>DETAILED</span></div><p class="hint" id="budget">1 rotating vector, largest amplitudes first</p>
-<div class="growth-controls"><label><input id="grow" type="checkbox" checked> Build up epicycles</label><p class="hint"><span>Build from one to 256 epicycles.</span> <span>Quick early steps, then finer detail.</span></p></div>
+<div class="control-heading"><label for="count">Epicycles <output id="count-value">1</output></label><button class="info-button" type="button" aria-label="About epicycles" aria-expanded="false" aria-controls="count-info">i</button><p class="info-tip" id="count-info" role="tooltip" hidden>Epicycles are circles traced by rotating Fourier vectors. Radius is amplitude, rotation rate is frequency, and starting angle is phase. More circles recover finer detail. The count is per chain in separate mode. <span id="budget">1 rotating vector, largest amplitudes first</span>.</p></div><div class="count-control"><button id="decrease" type="button" aria-label="Decrease epicycles by one">−</button><input id="count" type="range" min="1" max="${MAX_EPICYCLES}" value="1"><button id="increase" type="button" aria-label="Increase epicycles by one">+</button></div><div class="range-labels"><span>ABSTRACT</span><span>DETAILED</span></div>
+<div class="growth-controls"><div class="control-heading"><label><input id="grow" type="checkbox" checked> Build up epicycles</label><button class="info-button" type="button" aria-label="About building up epicycles" aria-expanded="false" aria-controls="grow-info">i</button><p class="info-tip" id="grow-info" role="tooltip" hidden>Build from one to ${MAX_EPICYCLES} epicycles. Quick early steps, then finer detail.</p></div></div>
 <label for="speed"><span>Drawing speed <output id="speed-value">1×</output></span></label><div class="count-control"><button id="slower" type="button" aria-label="Decrease drawing speed one notch">−</button><input id="speed" type="range" min="0.25" max="3" step="0.25" value="1"><button id="faster" type="button" aria-label="Increase drawing speed one notch">+</button></div>
-<label for="position"><span>Position in lap <output id="position-value"><span id="lap-number">Lap 1</span><span aria-hidden="true"> · </span><span id="lap-percent">0%</span></output></span></label><div class="count-control"><button id="step-back" type="button" aria-label="Step animation backward by five percent of a lap" disabled>←</button><input id="position" type="range" min="0" max="1000" step="1" value="0" disabled><button id="step-forward" type="button" aria-label="Step animation forward by five percent of a lap" disabled>→</button></div><p class="hint">Scrub or step in either direction. Play continues from that point.</p>
+<div class="control-heading"><label for="position"><span>Position in lap <output id="position-value"><span id="lap-number">Lap 1</span><span id="lap-separator" aria-hidden="true">·</span><span id="lap-percent">0%</span></output></span></label><button class="info-button" type="button" aria-label="About position in lap" aria-expanded="false" aria-controls="position-info">i</button><p class="info-tip" id="position-info" role="tooltip" hidden>Scrub or step in either direction. Play continues from that point.</p></div><div class="count-control"><button id="step-back" type="button" aria-label="Step animation backward by five percent of a lap" disabled>←</button><input id="position" type="range" min="0" max="1000" step="1" value="0" disabled><button id="step-forward" type="button" aria-label="Step animation forward by five percent of a lap" disabled>→</button></div>
 <label class="checkbox-row reverse-control"><input id="direction" type="checkbox"> Reverse drawing direction</label>
 <label for="palette"><span>Colour palette</span></label><select id="palette">${palettes.map((p) => `<option value="${p.id}">${p.name}</option>`).join("")}</select>
 
@@ -102,7 +103,7 @@ function syncCount() {
     `${count} rotating vector${count === 1 ? "" : "s"}${val("#mode") === "separate" ? " per axis" : ""}, largest amplitudes first`;
   $("#count").disabled = $("#grow").checked;
   $("#decrease").disabled = $("#grow").checked || count <= 1;
-  $("#increase").disabled = $("#grow").checked || count >= 256;
+  $("#increase").disabled = $("#grow").checked || count >= MAX_EPICYCLES;
   $("#canvas-count").textContent =
     val("#mode") === "separate"
       ? `${count} ${count === 1 ? "epicycle" : "epicycles"} / axis`
@@ -127,7 +128,7 @@ function reset(startCount = 1) {
         {
           count: +val("#count"),
           growing: $("#grow").checked,
-          limit: 256,
+          limit: MAX_EPICYCLES,
           startCount,
         },
       )
@@ -456,7 +457,7 @@ for (const [id, step] of [
   ["#increase", 1],
 ])
   $(id).addEventListener("click", () => {
-    $("#count").value = Math.max(1, Math.min(256, +val("#count") + step));
+    $("#count").value = Math.max(1, Math.min(MAX_EPICYCLES, +val("#count") + step));
     reset();
   });
 const infoButtons = [...document.querySelectorAll(".info-button")];
@@ -580,6 +581,7 @@ $("#position").addEventListener("input", () => {
     seek(
       (animation.cycle + Math.min(0.999999, +val("#position") / 1000)) *
         CYCLE_SECONDS,
+  MAX_EPICYCLES,
     );
 });
 for (const [id, step] of [

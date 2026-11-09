@@ -1,7 +1,7 @@
 export const BASE_PLAYBACK_RATE = 1.75;
 export const CYCLE_SECONDS = 20;
 export const HIGHLIGHT_SECONDS = 1.1;
-export const MAX_EPICYCLES = 256;
+export const MAX_EPICYCLES = 512;
 
 export function nextCount(count, limit = MAX_EPICYCLES) {
   const step = count < 64 ? count : count < 128 ? 32 : 64;

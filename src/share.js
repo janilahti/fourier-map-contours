@@ -1,3 +1,4 @@
+import { MAX_EPICYCLES } from "./animation.js";
 export const DEFAULT_SETTINGS = Object.freeze({
   country: "FIN",
   notation: "hidden",
@@ -45,7 +46,7 @@ export function readSettings(search, countryIds, paletteIds) {
     state.palette = params.get("palette");
   if (["hidden", "phase", "sine-cosine"].includes(params.get("notation")))
     state.notation = params.get("notation");
-  state.count = number(params, "count", 1, 256, 1);
+  state.count = number(params, "count", 1, MAX_EPICYCLES, 1);
   state.speed = number(params, "speed", 0.25, 3, 0.25);
   for (const key of flags) {
     const value = params.get(key);

@@ -56,7 +56,7 @@ test("progression begins with one, accelerates in steps, and stops at the limit"
   const animation = new ContourAnimation(point, {
     count: 64,
     growing: true,
-    limit: 256,
+    limit: 512,
   });
   assert.equal(animation.count, 1);
   for (const n of [2, 4, 8, 16, 32, 64]) {
@@ -70,11 +70,13 @@ test("progression begins with one, accelerates in steps, and stops at the limit"
   assert.equal(growthRate(1), 4);
   assert.equal(growthRate(8), 2);
   assert.equal(growthRate(64), 1);
-  assert.equal(nextCount(256, Infinity), 256);
+  assert.equal(nextCount(256), 320);
+  assert.equal(nextCount(511), 512);
+  assert.equal(nextCount(512, Infinity), 512);
   animation.advance(CYCLE_SECONDS * 35);
-  assert.equal(animation.count, 256);
+  assert.equal(animation.count, 512);
   animation.advance(CYCLE_SECONDS * 5);
-  assert.equal(animation.count, 256);
+  assert.equal(animation.count, 512);
   const custom = new ContourAnimation(point, { growing: true, limit: 11 });
   custom.advance(CYCLE_SECONDS * 20);
   assert.equal(custom.count, 11);
@@ -125,7 +127,7 @@ test("a shared build-up view continues from the shared epicycle count", () => {
     growing: true,
     startCount: 9999,
   });
-  assert.equal(capped.count, 256);
+  assert.equal(capped.count, 512);
 });
 
 test("seeking backward and forward reconstructs the correct lap, count and tip", () => {
@@ -147,7 +149,7 @@ test("seeking backward and forward reconstructs the correct lap, count and tip",
   assert.equal(a.time, 0);
   assert.equal(a.count, 1);
   a.seek(1e7);
-  assert.equal(a.count, 256);
+  assert.equal(a.count, 512);
   assert.ok(a.strokes.length <= 2);
   assert.throws(() => a.seek(Infinity), RangeError);
 });
