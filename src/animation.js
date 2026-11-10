@@ -42,6 +42,11 @@ export class ContourAnimation {
     this.cycle = 0;
     this.strokes = [this.newStroke()];
   }
+  stopGrowing() {
+    // Keep the clock, in-progress stroke, completed laps, and manual play state.
+    this.growing = false;
+    this.startCount = this.count;
+  }
   newStroke() {
     return {
       count: this.count,

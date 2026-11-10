@@ -14,17 +14,18 @@ export class RenderLoop {
       onResume,
       running: false,
       visible: true,
+      focused: true,
       pending: null,
     });
     this.tick = (now) => {
       this.pending = null;
-      if (!this.visible) return;
+      if (!this.active) return;
       this.draw(now);
       if (this.running) this.invalidate();
     };
   }
   invalidate() {
-    if (this.visible && this.pending === null)
+    if (this.active && this.pending === null)
       this.pending = this.request(this.tick);
   }
   setRunning(value) {
@@ -36,14 +37,24 @@ export class RenderLoop {
     }
     this.invalidate();
   }
+  get active() {
+    return this.visible && this.focused;
+  }
   setVisible(value) {
-    if (value === this.visible) return;
-    this.visible = value;
-    if (!value && this.pending !== null) {
+    this.setAvailability("visible", value);
+  }
+  setFocused(value) {
+    this.setAvailability("focused", value);
+  }
+  setAvailability(key, value) {
+    const wasActive = this.active;
+    this[key] = value;
+    if (this.active === wasActive) return;
+    if (!this.active && this.pending !== null) {
       this.cancel(this.pending);
       this.pending = null;
     }
-    if (value) {
+    if (this.active) {
       this.onResume();
       this.invalidate();
     }

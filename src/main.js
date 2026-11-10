@@ -317,14 +317,14 @@ function layout() {
     const iw = Math.min(190, width * 0.26),
       ih = Math.min(140, height * 0.25);
     const x = 18,
-      y = height - ih - 18;
-    const fit = fitDrawing(nearby.flat(), iw, ih - 20, false);
+      y = height - ih - 42;
+    const fit = fitDrawing(nearby.flat(), iw, ih, false);
     const inset = new Path2D();
     for (const ring of fillPolygons.slice(1).flat()) {
       ring.forEach((p, i) => {
         const q = [
           x + fit.origin[0] + p[0] * fit.scale,
-          y + 20 + fit.origin[1] + p[1] * fit.scale,
+          y + fit.origin[1] + p[1] * fit.scale,
         ];
         i ? inset.lineTo(...q) : inset.moveTo(...q);
       });
@@ -341,9 +341,6 @@ function layout() {
       bg.globalAlpha = 1;
     }
     if ($("#guide").checked) bg.stroke(inset);
-    bg.fillStyle = colors.trace;
-    bg.font = "11px sans-serif";
-    bg.fillText("Alaska · inset", x + 8, y + 14);
   }
   // Shadow blur is constant; rasterize its soft halo once, not on every frame.
   tipGlow = document.createElement("canvas");
@@ -532,13 +529,21 @@ function render(now) {
   }
 }
 $("#country").addEventListener("change", choose);
-for (const id of ["#count", "#mode", "#direction", "#grow"])
+for (const id of ["#count", "#mode", "#direction"])
   $(id).addEventListener("input", () => {
     reset();
     if (id === "#mode") layout();
     $("#mode-label").textContent =
       val("#mode") === "complex" ? "COMPLEX SERIES" : "SEPARATE X / Y SERIES";
   });
+$("#grow").addEventListener("input", () => {
+  if ($("#grow").checked) reset();
+  else {
+    animation?.stopGrowing();
+    syncCount();
+    loop.invalidate();
+  }
+});
 for (const [id, step] of [
   ["#decrease", -1],
   ["#increase", 1],
@@ -631,12 +636,19 @@ for (const [id, step] of [
     syncSpeed();
   });
 syncSpeed();
+function syncPlaybackStatus() {
+  $("#state").textContent = !playing
+    ? "PAUSED"
+    : loop.active
+      ? "DRAWING THE WORLD"
+      : "SUSPENDED";
+}
 function setPlaying(value) {
   playing = value;
   loop.setRunning(playing && !!animation);
   $("#play").innerHTML =
     `${icon(playing ? "pause" : "play")}<span>${playing ? "Pause" : "Play"}</span>`;
-  $("#state").textContent = playing ? "DRAWING THE WORLD" : "PAUSED";
+  syncPlaybackStatus();
 }
 $("#play").addEventListener("click", () => setPlaying(!playing));
 $("#random-country").addEventListener("click", () => {
@@ -750,7 +762,21 @@ const loop = new RenderLoop(render, {
   },
 });
 let inView = true;
-const visibility = () => loop.setVisible(!document.hidden && inView);
+const visibility = () => {
+  loop.setVisible(!document.hidden && inView);
+  loop.setFocused(document.hasFocus());
+  syncPlaybackStatus();
+};
+window.addEventListener("blur", () => {
+  loop.setFocused(false);
+  syncPlaybackStatus();
+});
+window.addEventListener("focus", visibility);
+window.addEventListener("pageshow", visibility);
+window.addEventListener("pagehide", () => {
+  loop.setVisible(false);
+  syncPlaybackStatus();
+});
 document.addEventListener("visibilitychange", visibility);
 new IntersectionObserver((entries) => {
   inView = entries[0].isIntersecting;

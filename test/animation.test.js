@@ -170,3 +170,24 @@ test("completed low-count laps and seek-rebuilt laps have exactly closed endpoin
     assert.equal(a.opacity(a.strokes[0]), 1);
   }
 });
+
+test("disabling build-up freezes the active count without resetting time, phase, or traces", () => {
+  const a = new ContourAnimation(point, { growing: true });
+  a.advance(25);
+  const time = a.time,
+    phase = a.phase,
+    strokes = a.strokes.slice(),
+    tip = strokes.at(-1).samples.at(-1);
+  assert.equal(a.count, 2);
+  a.stopGrowing();
+  assert.equal(a.time, time);
+  assert.equal(a.phase, phase);
+  assert.deepEqual(a.strokes, strokes);
+  assert.equal(a.strokes.at(-1).samples.at(-1), tip);
+  a.advance(17);
+  assert.equal(a.count, 2);
+  assert.equal(a.time, 42);
+  assert.equal(a.strokes.at(-1).count, 2);
+  a.seek(85);
+  assert.equal(a.count, 2, "scrubbing manual mode retains the frozen count");
+});
