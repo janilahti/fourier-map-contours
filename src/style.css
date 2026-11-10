@@ -1303,3 +1303,15 @@ footer {
   gap: 7px;
   line-height: 20px;
 }
+
+#map-scale {
+  margin-left: 14px;
+  color: var(--canvas-muted);
+  white-space: nowrap;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+.canvas-heading {
+  flex-wrap: wrap;
+  gap: 10px;
+}

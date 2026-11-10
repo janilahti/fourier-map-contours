@@ -12,22 +12,10 @@ export function growthRate(count) {
   return count < 8 ? 4 : count < 32 ? 2 : 1;
 }
 
-// Fade envelope: growth fades immediately; ordinary traces hold an extra lap.
-export function traceOpacity(age, growing = false) {
-  return Math.max(
-    0,
-    Math.min(
-      1,
-      1 -
-        (age - (growing ? 0 : CYCLE_SECONDS)) /
-          ((growing ? 1 : 2) * CYCLE_SECONDS),
-    ),
-  );
-}
-// Age each piece from when it was drawn. Keep it until the next pass reaches
-// the same position, then fade it; the still-undrawn end never dims early.
-export function traceSampleOpacity(age, growing = false) {
-  return traceOpacity(age - CYCLE_SECONDS, growing);
+export const LAP_FADE_SECONDS = 0.8;
+// Whole completed outlines fade on a real-time clock, not along the path.
+export function traceOpacity(age) {
+  return Math.max(0, Math.min(1, 1 - age / LAP_FADE_SECONDS));
 }
 export function highlightOpacity(age) {
   return Math.max(0, Math.min(1, 1 - age / HIGHLIGHT_SECONDS));
@@ -50,6 +38,7 @@ export class ContourAnimation {
     this.startCount = this.count;
     this.curveCache = new Map();
     this.time = 0;
+    this.elapsed = 0;
     this.cycle = 0;
     this.strokes = [this.newStroke()];
   }
@@ -58,6 +47,7 @@ export class ContourAnimation {
       count: this.count,
       samples: [{ p: this.pointAt(0, this.count), time: this.time }],
       completedAt: null,
+      fadeAt: null,
     };
   }
   get phase() {
@@ -71,30 +61,51 @@ export class ContourAnimation {
     return count;
   }
   curve(count) {
-    if (!this.curveCache.has(count))
-      this.curveCache.set(
-        count,
-        Array.from({ length: 1025 }, (_, i) => this.pointAt(i / 1024, count)),
+    if (!this.curveCache.has(count)) {
+      const curve = Array.from({ length: 1024 }, (_, i) =>
+        this.pointAt(i / 1024, count),
       );
+      curve.push(curve[0].slice());
+      this.curveCache.set(count, curve);
+    }
     return this.curveCache.get(count);
   }
+  opacity(stroke) {
+    return stroke.fadeAt === null
+      ? 1
+      : traceOpacity(this.elapsed - stroke.fadeAt);
+  }
+  fadeOldStrokes() {
+    for (const stroke of this.strokes)
+      if (
+        stroke.completedAt !== null &&
+        stroke.fadeAt === null &&
+        this.time >= stroke.completedAt + CYCLE_SECONDS
+      )
+        stroke.fadeAt = this.elapsed;
+    this.strokes = this.strokes.filter((stroke) => this.opacity(stroke) > 0);
+  }
   // Reconstruct only the visible recent laps, so seeking far ahead stays bounded.
-  seek(seconds) {
+  seek(seconds, rate = 1) {
     if (!Number.isFinite(seconds))
       throw new RangeError("Animation position must be finite");
     this.time = Math.max(0, seconds);
+    this.elapsed = this.time / rate;
     this.cycle = Math.floor(this.time / CYCLE_SECONDS);
     this.count = this.countAtCycle(this.cycle);
     this.strokes = [];
-    const first = Math.max(0, this.cycle - (this.growing ? 2 : 4));
+    const first = Math.max(
+      0,
+      this.cycle - 1 - Math.ceil((LAP_FADE_SECONDS * rate) / CYCLE_SECONDS),
+    );
     for (let cycle = first; cycle <= this.cycle; cycle++) {
       const count = this.countAtCycle(cycle),
         completedAt = cycle < this.cycle ? (cycle + 1) * CYCLE_SECONDS : null;
-      if (
-        completedAt !== null &&
-        traceSampleOpacity(this.time - completedAt, this.growing) <= 0
-      )
-        continue;
+      const fadeAt =
+        completedAt !== null && this.time >= completedAt + CYCLE_SECONDS
+          ? (completedAt + CYCLE_SECONDS) / rate
+          : null;
+      if (fadeAt !== null && traceOpacity(this.elapsed - fadeAt) <= 0) continue;
       const phase = cycle < this.cycle ? 1 : this.phase,
         curve = this.curve(count),
         samples = [];
@@ -105,10 +116,13 @@ export class ContourAnimation {
         });
       if ((phase * 1024) % 1)
         samples.push({ p: this.pointAt(phase, count), time: this.time });
-      this.strokes.push({ count, samples, completedAt });
+      this.strokes.push({ count, samples, completedAt, fadeAt });
     }
   }
-  advance(seconds) {
+  advance(seconds, elapsedSeconds = seconds) {
+    if (seconds <= 0) return;
+    const startTime = this.time,
+      startElapsed = this.elapsed;
     const target = this.time + seconds;
     while (this.time < target - 1e-10) {
       const boundary = (this.cycle + 1) * CYCLE_SECONDS;
@@ -126,16 +140,18 @@ export class ContourAnimation {
       }
       this.time = end;
       if (end === boundary) {
+        // Exact closure also avoids a visible open-path cap at low counts.
+        stroke.samples.at(-1).p = stroke.samples[0].p.slice();
         stroke.completedAt = end;
+        this.elapsed =
+          startElapsed + ((end - startTime) / seconds) * elapsedSeconds;
         this.cycle++;
         if (this.growing) this.count = nextCount(this.count, this.limit);
         this.strokes.push(this.newStroke());
+        this.fadeOldStrokes();
       }
     }
-    this.strokes = this.strokes.filter(
-      (stroke) =>
-        stroke.completedAt === null ||
-        traceSampleOpacity(this.time - stroke.completedAt, this.growing) > 0,
-    );
+    this.elapsed = startElapsed + elapsedSeconds;
+    this.fadeOldStrokes();
   }
 }

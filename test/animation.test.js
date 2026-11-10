@@ -4,7 +4,7 @@ import {
   ContourAnimation,
   nextCount,
   traceOpacity,
-  traceSampleOpacity,
+  LAP_FADE_SECONDS,
   highlightOpacity,
   CYCLE_SECONDS,
   growthRate,
@@ -31,26 +31,20 @@ test("cycle rollover preserves exact endpoints and the recent highlight", () => 
   assert.ok(
     Math.abs(highlightOpacity(1.099) - highlightOpacity(1.101)) < 0.002,
   );
-  assert.equal(traceOpacity(animation.time - old.completedAt), 1);
+  assert.equal(animation.opacity(old), 1);
 });
 
-test("old cycles fade smoothly and are eventually removed without unbounded history", () => {
+test("completed loops hold for a following lap, fade together, and do not retain unbounded history", () => {
   const animation = new ContourAnimation(point);
-  animation.advance(60);
-  assert.equal(animation.strokes.length, 4);
-  assert.equal(
-    traceOpacity(animation.time - animation.strokes[0].completedAt),
-    0.5,
-  );
-  assert.equal(traceOpacity(20), 1);
-  assert.equal(traceOpacity(60), 0);
+  animation.advance(39.9);
+  const old = animation.strokes[0];
+  assert.equal(animation.opacity(old), 1);
+  animation.advance(0.5);
+  assert.ok(Math.abs(animation.opacity(old) - 0.5) < 1e-10);
+  animation.advance(0.5);
+  assert.ok(!animation.strokes.includes(old));
   animation.advance(400);
-  assert.ok(animation.strokes.length <= 5);
-  assert.ok(
-    animation.strokes.every(
-      (s) => s.completedAt === null || animation.time - s.completedAt < 80,
-    ),
-  );
+  assert.ok(animation.strokes.length <= 3);
 });
 
 test("progression begins with one, accelerates in steps, and stops at the limit", () => {
@@ -99,21 +93,21 @@ test("successive approximations are separate paths, with correct count at each b
   );
 });
 
-test("build-up traces start fading one cycle earlier than ordinary traces", () => {
-  const growing = new ContourAnimation(point, { growing: true });
-  growing.advance(20.1);
-  const age = growing.time - growing.strokes[0].completedAt;
-  assert.ok(traceOpacity(age, true) < 1);
-  assert.equal(traceOpacity(age, false), 1);
-  assert.equal(traceOpacity(10, true), 0.5);
-  assert.equal(traceOpacity(20, true), 0);
-  assert.equal(traceOpacity(40, true), 0);
-  growing.advance(39.9);
-  assert.ok(
-    growing.strokes.every(
-      (s) => s.completedAt === null || growing.time - s.completedAt < 40,
-    ),
-  );
+test("whole-lap fade duration is independent of drawing speed and coefficient count", () => {
+  for (const count of [1, 4, 128, 512])
+    for (const rate of [0.25, 1, 5.25, 21]) {
+      const a = new ContourAnimation(point, {
+        growing: true,
+        startCount: count,
+      });
+      a.seek(2 * CYCLE_SECONDS, rate);
+      const old = a.strokes[0];
+      assert.equal(a.opacity(old), 1);
+      a.advance((rate * LAP_FADE_SECONDS) / 2, LAP_FADE_SECONDS / 2);
+      assert.ok(Math.abs(a.opacity(old) - 0.5) < 1e-10);
+      a.advance(rate * LAP_FADE_SECONDS, LAP_FADE_SECONDS);
+      assert.ok(!a.strokes.includes(old));
+    }
 });
 
 test("a shared build-up view continues from the shared epicycle count", () => {
@@ -164,30 +158,15 @@ test("seeking in manual mode preserves count and retains ordinary fade history",
   assert.ok(Math.abs(Math.hypot(...samples.at(-1).p) - 17) < 1e-10);
 });
 
-test("rolling trace fade preserves the unvisited end of the last lap at every detail level", () => {
-  for (const count of [2, 128, 512]) {
-    const animation = new ContourAnimation(point, {
-      growing: true,
-      startCount: count,
-    });
-    animation.seek(1.9 * CYCLE_SECONDS);
-    const old = animation.strokes[0];
-    assert.equal(
-      traceSampleOpacity(animation.time - old.samples.at(-1).time, true),
-      1,
-    );
-    assert.ok(
-      traceSampleOpacity(animation.time - old.samples[0].time, true) < 0.11,
-    );
-    assert.equal(traceSampleOpacity(CYCLE_SECONDS, true), 1);
-    assert.equal(traceSampleOpacity(1.5 * CYCLE_SECONDS, true), 0.5);
-    animation.seek(2.1 * CYCLE_SECONDS);
-    assert.ok(
-      animation.strokes.some((s) => s.count === count),
-      "older end fades after the join, not abruptly at it",
-    );
-    const before = traceSampleOpacity(CYCLE_SECONDS - 0.001, true);
-    const after = traceSampleOpacity(CYCLE_SECONDS + 0.001, true);
-    assert.ok(Math.abs(before - after) < 0.0001);
+test("completed low-count laps and seek-rebuilt laps have exactly closed endpoints", () => {
+  for (const count of [1, 2, 4, 8, 128, 512]) {
+    const a = new ContourAnimation(point, { growing: true, startCount: count });
+    a.advance(CYCLE_SECONDS + 0.01);
+    let samples = a.strokes[0].samples;
+    assert.deepEqual(samples[0].p, samples.at(-1).p);
+    a.seek(1.5 * CYCLE_SECONDS);
+    samples = a.strokes[0].samples;
+    assert.deepEqual(samples[0].p, samples.at(-1).p);
+    assert.equal(a.opacity(a.strokes[0]), 1);
   }
 });

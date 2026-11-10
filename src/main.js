@@ -4,7 +4,6 @@ import { TAU, transform, evaluate, fitDrawing } from "./math.js";
 import {
   ContourAnimation,
   highlightOpacity,
-  traceSampleOpacity,
   BASE_PLAYBACK_RATE,
   growthRate,
   CYCLE_SECONDS,
@@ -37,9 +36,9 @@ $("#app").innerHTML =
 <label for="palette"><span>Colour palette</span></label><select id="palette">${palettes.map((p) => `<option value="${p.id}">${p.name}</option>`).join("")}</select>
 
 <label for="notation"><span>Equation notation</span></label><select id="notation"><option value="hidden">Hidden</option><option value="phase">Amplitude &amp; phase</option><option value="sine-cosine">Sine &amp; cosine coefficients</option></select>
-<div class="toggles"><label><input id="circles" type="checkbox" checked> Show epicycles</label><label><input id="fill" type="checkbox"> Fill map area</label><label><input id="guide" type="checkbox" checked> Reference outline</label><label><input id="glow" type="checkbox" checked> Highlight the drawing tip</label></div>
+<div class="toggles"><label><input id="circles" type="checkbox" checked> Show epicycles</label><label><input id="fill" type="checkbox"> Fill map area</label><label><input id="guide" type="checkbox" checked> Reference outline</label></div>
 <div class="actions"><button id="play" disabled>${icon("pause")}<span>Pause</span></button><button id="reset" disabled aria-label="Restart drawing">${icon("restart")}<span>Restart</span></button></div>
-</aside><div class="drawing"><div class="canvas-heading"><span><span class="dot"></span> <span id="state">LOADING ATLAS</span></span><div class="canvas-tools"><span id="mode-label">COMPLEX SERIES</span><button id="share" type="button" disabled>Share view</button></div></div><div class="canvas-viewport"><div id="projection-label" class="projection-label" hidden>Polar view</div><canvas aria-label="Animated country outline drawn by Fourier epicycles" role="img"></canvas></div><div class="canvas-footer"><a id="country-name" href="https://en.wikipedia.org/" target="_blank" rel="noreferrer" title="Read about this country on Wikipedia">—</a><span class="canvas-metrics"><span id="canvas-count">1 epicycle</span><span id="progress" title="Root-mean-square error across all 1,024 matching samples of the reconstructed and original outline, as a percentage of the outline’s bounding-box diagonal.">RMS error —</span><span id="distance-error" title="RMS great-circle distance across all 1,024 corresponding original and reconstructed samples on a spherical Earth. This is not a nearest-border distance.">≈ — km</span></span></div><section id="math-panel" class="math-panel" aria-label="Fourier equations and live values" hidden><p id="equation"></p><p class="math-units">Coordinates are normalized to the selected outline. t is measured in cycles.</p><output id="live-values"></output><details id="coefficients"><summary>Largest coefficients · amplitude, frequency &amp; phase</summary><div id="coefficient-table"></div></details></section><div id="error" role="alert" hidden></div></div></section>
+</aside><div class="drawing"><div class="canvas-heading"><span><span class="dot"></span> <span id="state">LOADING ATLAS</span><span id="map-scale" aria-label="Map data scale"></span></span><div class="canvas-tools"><span id="mode-label">COMPLEX SERIES</span><button id="share" type="button" disabled>Share view</button></div></div><div class="canvas-viewport"><div id="projection-label" class="projection-label" hidden>Polar view</div><canvas aria-label="Animated country outline drawn by Fourier epicycles" role="img"></canvas></div><div class="canvas-footer"><a id="country-name" href="https://en.wikipedia.org/" target="_blank" rel="noreferrer" title="Read about this country on Wikipedia">—</a><span class="canvas-metrics"><span id="canvas-count">1 epicycle</span><span id="progress" title="Root-mean-square error across all 1,024 matching samples of the reconstructed and original outline, as a percentage of the outline’s bounding-box diagonal.">RMS error —</span><span id="distance-error" title="RMS great-circle distance across all 1,024 corresponding original and reconstructed samples on a spherical Earth. This is not a nearest-border distance.">≈ — km</span></span></div><section id="math-panel" class="math-panel" aria-label="Fourier equations and live values" hidden><p id="equation"></p><p class="math-units">Coordinates are normalized to the selected outline. t is measured in cycles.</p><output id="live-values"></output><details id="coefficients"><summary>Largest coefficients · amplitude, frequency &amp; phase</summary><div id="coefficient-table"></div></details></section><div id="error" role="alert" hidden></div></div></section>
 <section class="notes"><div><span class="eyebrow">THE IDEA</span><h2>From a border to a wave.</h2><p>Sample an outline at equal distances. A discrete Fourier transform turns those points into rotating vectors. Add their tips together, and the border appears again.</p></div><div><span class="eyebrow">THE CIRCLES</span><h2>Small orbits. Fine details.</h2><p>Each epicycle has an amplitude (radius), frequency (rotation rate), and phase (starting angle). The largest amplitudes are drawn first. More circles recover finer details.</p></div><div><span class="eyebrow">TWO WAYS TO DRAW</span><h2>One plane, or two axes.</h2><p>The complex mode draws a single vector chain. Separate mode uses one chain for x and one for y; their crosshair locates the drawing tip. The circle count applies to each chain.</p></div></section></main>
 <footer><span class="footer-brand"><svg class="footer-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13"/><circle cx="16" cy="16" r="6"/></svg><span>BORDER / ORBIT <span class="muted">· A little mathematics, a whole world.</span></span></span><a class="repo-link" href="https://github.com/janilahti/fourier-map-contours" target="_blank" rel="noreferrer">Source and feedback on GitHub</a><span>Map data: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth</a> · Public domain</span></footer>
 <dialog id="share-dialog" aria-labelledby="share-title"><h2 id="share-title">Share this view</h2><p>The link keeps your country and settings. The drawing starts with a fresh trace.</p><label for="share-url">Link to this view</label><input id="share-url" type="url" readonly><div class="share-actions"><button id="copy-link" class="share-primary" type="button">Copy link</button><button id="native-share" type="button" hidden>Share…</button><form method="dialog"><button type="submit">Close</button></form></div><p id="share-status" role="status" aria-live="polite"></p></dialog>`;
@@ -48,6 +47,7 @@ const canvas = $("canvas"),
 let countries = [],
   points = [],
   nearby = [],
+  alaskaInset = false,
   reference = [],
   fillPolygons = [],
   projection = null,
@@ -167,6 +167,7 @@ async function loadSelection({ startCount = 1 } = {}) {
   const feature = countries.find((f) => f.properties.id === val("#country"));
   const continent = feature.properties.kind === "continent";
   let geometry = feature.geometry;
+  let sourceScale = continent ? "1:110M" : "1:10M";
   $("#error").hidden = true;
   {
     $("#state").textContent = "LOADING OUTLINE";
@@ -193,6 +194,7 @@ async function loadSelection({ startCount = 1 } = {}) {
           "Continent unavailable. Showing Finland; select the continent again to retry.";
         return;
       }
+      sourceScale = "1:50M";
       if (!fallbackAtlas) {
         const response = await fetch(
           `${import.meta.env.BASE_URL}data/countries.geojson`,
@@ -215,11 +217,13 @@ async function loadSelection({ startCount = 1 } = {}) {
   points = prepared.points;
   reference = prepared.reference;
   nearby = prepared.nearby;
+  alaskaInset = feature.properties.id === "USA" && nearby.length > 0;
   fillPolygons = prepared.fillPolygons;
   termsCache.clear();
   complex = transform(points);
   xs = transform(points.map((p) => [p[0], 0]));
   ys = transform(points.map((p) => [p[1], 0]));
+  $("#map-scale").textContent = sourceScale;
   $("#projection-label").hidden = projection.kind !== "south-polar";
   $("#country-name").textContent = feature.properties.name;
   $("#country-name").href = wikipediaUrl(feature.properties);
@@ -267,14 +271,17 @@ function layout() {
       width,
       height,
       val("#mode") === "separate",
-      reference.concat(nearby.flat()),
+      alaskaInset ? reference : reference.concat(nearby.flat()),
     );
     xSource = fit.xSource;
     ySource = fit.ySource;
     scale = fit.scale;
     origin = fit.origin;
     referencePath = new Path2D();
-    for (const ring of fillPolygons.flat()) {
+    for (const ring of (alaskaInset
+      ? fillPolygons.slice(0, 1)
+      : fillPolygons
+    ).flat()) {
       ring.forEach((p, i) =>
         i
           ? referencePath.lineTo(...screen(p))
@@ -305,6 +312,38 @@ function layout() {
     bg.strokeStyle = colors.guide;
     bg.lineWidth = 1;
     bg.stroke(referencePath);
+  }
+  if (alaskaInset && ($("#guide").checked || $("#fill").checked)) {
+    const iw = Math.min(190, width * 0.26),
+      ih = Math.min(140, height * 0.25);
+    const x = 18,
+      y = height - ih - 18;
+    const fit = fitDrawing(nearby.flat(), iw, ih - 20, false);
+    const inset = new Path2D();
+    for (const ring of fillPolygons.slice(1).flat()) {
+      ring.forEach((p, i) => {
+        const q = [
+          x + fit.origin[0] + p[0] * fit.scale,
+          y + 20 + fit.origin[1] + p[1] * fit.scale,
+        ];
+        i ? inset.lineTo(...q) : inset.moveTo(...q);
+      });
+      inset.closePath();
+    }
+    bg.fillStyle = colors.canvas;
+    bg.fillRect(x, y, iw, ih);
+    bg.strokeStyle = colors.guide;
+    bg.strokeRect(x, y, iw, ih);
+    if ($("#fill").checked) {
+      bg.fillStyle = colors.trace;
+      bg.globalAlpha = 0.14;
+      bg.fill(inset, "evenodd");
+      bg.globalAlpha = 1;
+    }
+    if ($("#guide").checked) bg.stroke(inset);
+    bg.fillStyle = colors.trace;
+    bg.font = "11px sans-serif";
+    bg.fillText("Alaska · inset", x + 8, y + 14);
   }
   // Shadow blur is constant; rasterize its soft halo once, not on every frame.
   tipGlow = document.createElement("canvas");
@@ -399,6 +438,7 @@ function render(now) {
         +val("#speed") *
         BASE_PLAYBACK_RATE *
         (animation.growing ? growthRate(animation.count) : 1),
+      dt,
     );
     if (animation.count !== previousCount) syncCount();
   }
@@ -429,7 +469,7 @@ function render(now) {
     for (const stroke of animation.strokes) {
       let cached = strokePaths.get(stroke);
       if (!cached) {
-        cached = { path: new Path2D(), parts: [], index: 0 };
+        cached = { path: new Path2D(), index: 0, closed: false };
         strokePaths.set(stroke, cached);
       }
       while (cached.index < stroke.samples.length) {
@@ -437,43 +477,19 @@ function render(now) {
         cached.index
           ? cached.path.lineTo(...point)
           : cached.path.moveTo(...point);
-        if (cached.index) {
-          const sample = stroke.samples[cached.index];
-          const start = stroke.samples[0].time;
-          const bucket = Math.min(
-            63,
-            Math.floor((sample.time - start) / (CYCLE_SECONDS / 64)),
-          );
-          if (!cached.parts[bucket]) {
-            const path = new Path2D();
-            path.moveTo(...screen(stroke.samples[cached.index - 1].p));
-            cached.parts[bucket] = {
-              path,
-              time: start + ((bucket + 0.5) * CYCLE_SECONDS) / 64,
-            };
-          }
-          cached.parts[bucket].path.lineTo(...point);
-        }
         cached.index++;
       }
       ctx.strokeStyle = colors.trace;
       ctx.lineWidth = colors.traceWidth;
-      if (stroke.completedAt === null) {
-        ctx.globalAlpha = 1;
-        ctx.stroke(cached.path);
-      } else {
-        for (const part of cached.parts) {
-          if (!part) continue;
-          ctx.globalAlpha = traceSampleOpacity(
-            animation.time - part.time,
-            animation.growing,
-          );
-          if (ctx.globalAlpha > 0) ctx.stroke(part.path);
-        }
+      if (stroke.completedAt !== null && !cached.closed) {
+        cached.path.closePath();
+        cached.closed = true;
       }
+      ctx.globalAlpha = animation.opacity(stroke);
+      ctx.stroke(cached.path);
     }
     ctx.globalAlpha = 1;
-    if ($("#glow").checked) {
+    {
       for (const stroke of animation.strokes) {
         for (let i = stroke.samples.length - 1; i > 0; i--) {
           const alpha = highlightOpacity(
@@ -648,7 +664,12 @@ function seek(time) {
   if (!animation) return;
   const previousCount = animation.count;
   setPlaying(false);
-  animation.seek(time);
+  animation.seek(
+    time,
+    +val("#speed") *
+      BASE_PLAYBACK_RATE *
+      (animation.growing ? growthRate(animation.count) : 1),
+  );
   last = 0;
   lastReadout = 0;
   strokePaths = new WeakMap();
@@ -661,7 +682,6 @@ $("#position").addEventListener("input", () => {
     seek(
       (animation.cycle + Math.min(0.999999, +val("#position") / 1000)) *
         CYCLE_SECONDS,
-      MAX_EPICYCLES,
     );
 });
 for (const [id, step] of [
@@ -684,7 +704,6 @@ function currentSettings() {
     circles: $("#circles").checked,
     outline: $("#guide").checked,
     fill: $("#fill").checked,
-    highlight: $("#glow").checked,
     equations: val("#notation") !== "hidden",
     coefficients: $("#coefficients").open,
     paused: !playing,
@@ -823,7 +842,6 @@ async function loadAtlas() {
       ["circles", "circles"],
       ["guide", "outline"],
       ["fill", "fill"],
-      ["glow", "highlight"],
     ])
       $("#" + id).checked = restored[key];
     $("#coefficients").open = restored.coefficients;

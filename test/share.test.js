@@ -17,7 +17,6 @@ test("sharing round-trips every control and strips unrelated URL data", () => {
     circles: false,
     outline: false,
     fill: true,
-    highlight: false,
     equations: true,
     coefficients: true,
     paused: true,
@@ -80,4 +79,15 @@ test("new views build up by default while old visibility flags and manual-mode l
   assert.equal("detail" in legacy, false);
   assert.equal("nearby" in legacy, false);
   assert.equal(legacy.equations, false);
+});
+
+test("retired highlight preferences cannot disable the permanent drawing tip", () => {
+  const state = readSettings("?highlight=0", countries, palettes);
+  assert.equal("highlight" in state, false);
+  assert.equal(
+    new URL(shareUrl("https://example.com/", state)).searchParams.has(
+      "highlight",
+    ),
+    false,
+  );
 });
