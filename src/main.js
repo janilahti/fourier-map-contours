@@ -424,7 +424,7 @@ function chain(tr, u, start, rotation = 0, axis = null) {
   ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   return p;
 }
-function render(now) {
+function render(now, motionScale = 1) {
   if (!last) last = now;
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
@@ -432,6 +432,7 @@ function render(now) {
     const previousCount = animation.count;
     animation.advance(
       dt *
+        motionScale *
         +val("#speed") *
         BASE_PLAYBACK_RATE *
         (animation.growing ? growthRate(animation.count) : 1),
@@ -757,6 +758,10 @@ $("#native-share").addEventListener("click", async () => {
   }
 });
 const loop = new RenderLoop(render, {
+  focusTransitionMs: matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? 0
+    : 450,
+  onSuspend: syncPlaybackStatus,
   onResume: () => {
     last = 0;
   },
