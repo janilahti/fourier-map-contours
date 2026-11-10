@@ -17,7 +17,13 @@ import { RenderLoop } from "./render-loop.js";
 import { wikipediaUrl, randomCountry } from "./countries.js";
 import { readSettings, shareUrl } from "./share.js";
 import { palettes, canvasColors } from "./palettes.js";
-const $ = (s) => document.querySelector(s);
+// Controls are created once; avoid selector lookups in every vector/frame.
+const elements = new Map();
+const $ = (selector) => {
+  if (!elements.has(selector))
+    elements.set(selector, document.querySelector(selector));
+  return elements.get(selector);
+};
 $("#app").innerHTML =
   `<main><section class="intro"><div class="intro-kicker"><span>GEOGRAPHY, IN FREQUENCY SPACE</span><span>AN INTERACTIVE FOURIER ATLAS</span></div><div class="intro-body"><h1>A world drawn<br>by <em>circles.</em></h1><p class="lede">Every coastline is a rhythm.<br> Watch rotating vectors reconstruct the<br> outline of a country, one orbit at a time.</p></div></section>
 <section class="studio"><aside><div class="panel-heading"><span class="eyebrow">THE INSTRUMENT</span><span class="dot"></span></div>
@@ -38,7 +44,7 @@ $("#app").innerHTML =
 <footer><span class="footer-brand"><svg class="footer-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13"/><circle cx="16" cy="16" r="6"/></svg><span>BORDER / ORBIT <span class="muted">· A little mathematics, a whole world.</span></span></span><a class="repo-link" href="https://github.com/janilahti/fourier-map-contours" target="_blank" rel="noreferrer">Source and feedback on GitHub</a><span>Map data: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth</a> · Public domain</span></footer>
 <dialog id="share-dialog" aria-labelledby="share-title"><h2 id="share-title">Share this view</h2><p>The link keeps your country and settings. The drawing starts with a fresh trace.</p><label for="share-url">Link to this view</label><input id="share-url" type="url" readonly><div class="share-actions"><button id="copy-link" class="share-primary" type="button">Copy link</button><button id="native-share" type="button" hidden>Share…</button><form method="dialog"><button type="submit">Close</button></form></div><p id="share-status" role="status" aria-live="polite"></p></dialog>`;
 const canvas = $("canvas"),
-  ctx = canvas.getContext("2d");
+  ctx = canvas.getContext("2d", { alpha: false });
 let countries = [],
   points = [],
   nearby = [],
@@ -47,9 +53,13 @@ let countries = [],
   projection = null,
   selectionVersion = 0,
   backgroundCanvas = null,
+  tipGlow = null,
+  tipGlowSize = 64,
   referencePath = null,
   gridPath = null,
   strokePaths = new WeakMap(),
+  circlePaths = new WeakMap(),
+  pixelRatio = 1,
   termsCache = new Map(),
   complex = [],
   xs = [],
@@ -244,6 +254,8 @@ function pointAt(u, tr) {
 function layout() {
   const r = canvas.getBoundingClientRect(),
     d = Math.min(devicePixelRatio || 1, 2);
+  pixelRatio = d;
+  circlePaths = new WeakMap();
   width = r.width;
   height = r.height;
   canvas.width = Math.round(width * d);
@@ -294,6 +306,25 @@ function layout() {
     bg.lineWidth = 1;
     bg.stroke(referencePath);
   }
+  // Shadow blur is constant; rasterize its soft halo once, not on every frame.
+  tipGlow = document.createElement("canvas");
+  tipGlow.width = tipGlow.height = Math.ceil(64 * Math.max(1, d));
+  tipGlowSize = tipGlow.width / d;
+  const glow = tipGlow.getContext("2d");
+  glow.setTransform(d, 0, 0, d, 0, 0);
+  glow.fillStyle = glow.shadowColor = colors.tip;
+  glow.shadowBlur = 14;
+  glow.shadowOffsetX = tipGlow.width * 2;
+  glow.beginPath();
+  // Keep the source circle outside the sprite; retain only its shadow inside.
+  glow.arc(
+    tipGlowSize / 2 - glow.shadowOffsetX / d,
+    tipGlowSize / 2,
+    3.5,
+    0,
+    TAU,
+  );
+  glow.fill();
   strokePaths = new WeakMap();
   loop.invalidate();
 }
@@ -307,15 +338,30 @@ function path(points, color, lineWidth = 1) {
   ctx.stroke();
 }
 function chain(tr, u, start, rotation = 0, axis = null) {
+  const showCircles = $("#circles").checked;
   let p = start.slice();
   for (const c of tr) {
     const angle = TAU * c.frequency * u + rotation,
-      dx = (c.re * Math.cos(angle) - c.im * Math.sin(angle)) * scale,
-      dy = (c.re * Math.sin(angle) + c.im * Math.cos(angle)) * scale;
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      dx = (c.re * cos - c.im * sin) * scale,
+      dy = (c.re * sin + c.im * cos) * scale;
     const q = [p[0] + dx, p[1] + dy];
-    if ($("#circles").checked) {
-      ctx.beginPath();
-      ctx.arc(...p, c.amplitude * scale, 0, TAU);
+    if (showCircles) {
+      let circle = circlePaths.get(c);
+      if (!circle) {
+        circle = new Path2D();
+        circle.arc(0, 0, c.amplitude * scale, 0, TAU);
+        circlePaths.set(c, circle);
+      }
+      ctx.setTransform(
+        pixelRatio,
+        0,
+        0,
+        pixelRatio,
+        p[0] * pixelRatio,
+        p[1] * pixelRatio,
+      );
       ctx.strokeStyle =
         axis === "x"
           ? colors.circleX
@@ -323,9 +369,12 @@ function chain(tr, u, start, rotation = 0, axis = null) {
             ? colors.circleY
             : colors.circle;
       ctx.lineWidth = colors.circleWidth;
-      ctx.stroke();
+      ctx.stroke(circle);
       path(
-        [p, q],
+        [
+          [0, 0],
+          [dx, dy],
+        ],
         axis === "x"
           ? colors.vectorX
           : axis === "y"
@@ -336,6 +385,7 @@ function chain(tr, u, start, rotation = 0, axis = null) {
     }
     p = q;
   }
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   return p;
 }
 function render(now) {
@@ -355,7 +405,6 @@ function render(now) {
   syncTransport();
   const tr = terms();
   const t = animation?.phase ?? 0;
-  ctx.clearRect(0, 0, width, height);
   if (backgroundCanvas?.width && backgroundCanvas?.height)
     ctx.drawImage(backgroundCanvas, 0, 0, width, height);
   else {
@@ -440,8 +489,14 @@ function render(now) {
         }
       }
       ctx.globalAlpha = 1;
-      ctx.shadowBlur = 14;
-      ctx.shadowColor = colors.tip;
+      if (tipGlow)
+        ctx.drawImage(
+          tipGlow,
+          end[0] - tipGlowSize / 2,
+          end[1] - tipGlowSize / 2,
+          tipGlowSize,
+          tipGlowSize,
+        );
     }
     ctx.beginPath();
     ctx.arc(...end, 3.5, 0, TAU);
@@ -563,7 +618,8 @@ syncSpeed();
 function setPlaying(value) {
   playing = value;
   loop.setRunning(playing && !!animation);
-  $("#play").innerHTML = `${icon(playing ? "pause" : "play")}<span>${playing ? "Pause" : "Play"}</span>`;
+  $("#play").innerHTML =
+    `${icon(playing ? "pause" : "play")}<span>${playing ? "Pause" : "Play"}</span>`;
   $("#state").textContent = playing ? "DRAWING THE WORLD" : "PAUSED";
 }
 $("#play").addEventListener("click", () => setPlaying(!playing));
@@ -577,11 +633,16 @@ $("#random-country").addEventListener("click", () => {
 });
 function syncTransport() {
   if (!animation) return;
-  $("#position").value = Math.round(animation.phase * 1000);
-  $("#lap-number").textContent = `Lap ${animation.cycle + 1}`;
-  $("#lap-percent").textContent = `${Math.round(animation.phase * 100)}%`;
-  $("#step-back").disabled = animation.time <= 0;
-  $("#step-forward").disabled = false;
+  const position = String(Math.round(animation.phase * 1000));
+  if ($("#position").value !== position) $("#position").value = position;
+  const lap = `Lap ${animation.cycle + 1}`;
+  if ($("#lap-number").textContent !== lap) $("#lap-number").textContent = lap;
+  const percent = `${Math.round(animation.phase * 100)}%`;
+  if ($("#lap-percent").textContent !== percent)
+    $("#lap-percent").textContent = percent;
+  const atStart = animation.time <= 0;
+  if ($("#step-back").disabled !== atStart) $("#step-back").disabled = atStart;
+  if ($("#step-forward").disabled) $("#step-forward").disabled = false;
 }
 function seek(time) {
   if (!animation) return;

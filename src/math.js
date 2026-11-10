@@ -81,16 +81,16 @@ export function transform(points) {
   return terms.sort((a, b) => b.amplitude - a.amplitude);
 }
 export function evaluate(terms, t) {
-  return terms.reduce(
-    (p, c) => {
-      const a = TAU * c.frequency * t;
-      return [
-        p[0] + c.re * Math.cos(a) - c.im * Math.sin(a),
-        p[1] + c.re * Math.sin(a) + c.im * Math.cos(a),
-      ];
-    },
-    [0, 0],
-  );
+  let x = 0,
+    y = 0;
+  for (const c of terms) {
+    const angle = TAU * c.frequency * t;
+    const cos = Math.cos(angle),
+      sin = Math.sin(angle);
+    x = x + c.re * cos - c.im * sin;
+    y = y + c.re * sin + c.im * cos;
+  }
+  return [x, y];
 }
 
 // Fit the actual bounds, allowing axis sources to overlap the map in separate mode.

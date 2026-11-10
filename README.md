@@ -91,6 +91,10 @@ The render scheduler explicitly suspends animation while the document is hidden 
 
 Static grids and reference outlines are rasterized once per layout/palette change. Trace paths are extended incrementally and reused; cached coefficient slices avoid repeated array creation. This keeps detailed coastlines and completed cycles from being rebuilt in JavaScript every frame. Numerical geometry/DFT preparation currently runs on the main thread when a new outline is selected.
 
+Circle paths and the soft pen halo are cached per layout, and the opaque canvas avoids an unnecessary clear/compositing pass. Fourier evaluation reuses sine/cosine values and accumulates coordinates without allocating an array for every term. Controls are cached and unchanged readouts do not rewrite the DOM. All coefficients, trace samples, blending order, display resolution, and the browser's animation cadence are preserved.
+
+A local headless Chromium comparison at 1,920 × 1,080, device pixel ratio 2, 512 epicycles per axis and 3× speed measured mean JavaScript frame callbacks of 2.13 → 1.46 ms (about 31% less). Across six seconds, script time fell from 0.78 → 0.54 seconds; total browser task time fell from 4.56 → 4.34 seconds. These are host-specific measurements, not a prediction of hardware GPU usage. Canvas comparisons covered both representations, reverse direction, multiple palettes and Antarctica; cached vector/halo rendering can differ in subpixel antialiasing.
+
 ## Desktop layout
 
 At desktop widths, the studio height follows the space available below the intro and adjusts as the page scrolls or resizes. The controls have their own vertical scrollbar, so adding choices does not stretch the canvas below the viewport. The equation panel scrolls internally when expanded. Narrow/mobile screens retain the stacked canvas-first layout and normal page scrolling. The wider desktop layout can use up to 1,920 pixels.
