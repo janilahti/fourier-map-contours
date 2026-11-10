@@ -2,7 +2,7 @@ import { MAX_EPICYCLES } from "./animation.js";
 export const DEFAULT_SETTINGS = Object.freeze({
   country: "FIN",
   notation: "hidden",
-  mode: "complex",
+  mode: "separate",
   count: 1,
   speed: 1,
   reverse: false,

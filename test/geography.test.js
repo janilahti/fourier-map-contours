@@ -204,13 +204,12 @@ test("North America includes Central America and visible Caribbean islands, with
     );
 });
 
-test("Europe shows Great Britain, a united Ireland, and Iceland without filling surrounding seas", () => {
+test("Europe shows Great Britain and a united Ireland, with Iceland omitted", () => {
   const rings = continentRings("EUROPE");
   for (const point of [
     [-1, 52],
     [-8, 53],
     [-6.7, 54.7],
-    [-19, 65],
   ])
     assert.ok(
       rings.slice(1).some((r) => contains(r, point)),
@@ -225,6 +224,7 @@ test("Europe shows Great Britain, a united Ireland, and Iceland without filling 
       rings.every((r) => !contains(r, sea)),
       `sea remains sea: ${sea}`,
     );
+  assert.ok(rings.every((r) => !contains(r, [-19, 65])), "Iceland is omitted");
   const ireland = rings.find((r) => contains(r, [-8, 53]));
   assert.ok(
     contains(ireland, [-6.7, 54.7]),

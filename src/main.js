@@ -1,4 +1,5 @@
 import "./style.css";
+import { icon } from "./icons.js";
 import { TAU, transform, evaluate, fitDrawing } from "./math.js";
 import {
   ContourAnimation,
@@ -20,8 +21,8 @@ const $ = (s) => document.querySelector(s);
 $("#app").innerHTML =
   `<main><section class="intro"><div class="intro-kicker"><span>GEOGRAPHY, IN FREQUENCY SPACE</span><span>AN INTERACTIVE FOURIER ATLAS</span></div><div class="intro-body"><h1>A world drawn<br>by <em>circles.</em></h1><p class="lede">Every coastline is a rhythm.<br> Watch rotating vectors reconstruct the<br> outline of a country, one orbit at a time.</p></div></section>
 <section class="studio"><aside><div class="panel-heading"><span class="eyebrow">THE INSTRUMENT</span><span class="dot"></span></div>
-<div class="control-heading"><label for="country">Country or continent</label><button class="info-button" type="button" aria-label="About country outlines" aria-expanded="false" aria-controls="country-info">i</button><p class="info-tip" id="country-info" role="tooltip" hidden>Only the largest connected outer region is animated. Substantial nearby parts can appear in the reference outline. This Fourier drawing follows one continuous, closed path; separate islands would require pen lifts or artificial connecting lines.</p></div><select id="country" disabled><option>Loading atlas…</option></select><button id="random-country" type="button" disabled>↝ Random outline &amp; build up</button>
-<div class="control-heading"><label for="mode">Fourier representation</label><button class="info-button" type="button" aria-label="About Fourier representations" aria-expanded="false" aria-controls="mode-info">i</button><p class="info-tip" id="mode-info" role="tooltip" hidden>Complex mode treats x + iy as one signal and adds one chain of rotating vectors. Separate mode reconstructs x and y independently; their crosshair marks the drawing point.</p></div><select id="mode"><option value="complex">Complex plane · z(t) = x(t) + iy(t)</option><option value="separate">Separate series · x(t) and y(t)</option></select>
+<div class="control-heading"><label for="country">Country or continent</label><button class="info-button" type="button" aria-label="About country outlines" aria-expanded="false" aria-controls="country-info">i</button><p class="info-tip" id="country-info" role="tooltip" hidden>Only the largest connected outer region is animated. Substantial nearby parts can appear in the reference outline. This Fourier drawing follows one continuous, closed path; separate islands would require pen lifts or artificial connecting lines.</p></div><select id="country" disabled><option>Loading atlas…</option></select><button id="random-country" type="button" disabled title="Choose a random outline and build up epicycles">${icon("random")}<span>Surprise me</span></button>
+<div class="control-heading"><label for="mode">Fourier representation</label><button class="info-button" type="button" aria-label="About Fourier representations" aria-expanded="false" aria-controls="mode-info">i</button><p class="info-tip" id="mode-info" role="tooltip" hidden>Complex mode treats x + iy as one signal and adds one chain of rotating vectors. Separate mode reconstructs x and y independently; their crosshair marks the drawing point.</p></div><select id="mode"><option value="complex">Complex plane · z(t) = x(t) + iy(t)</option><option value="separate" selected>Separate series · x(t) and y(t)</option></select>
 <div class="control-heading"><label for="count">Epicycles <output id="count-value">1</output></label><button class="info-button" type="button" aria-label="About epicycles" aria-expanded="false" aria-controls="count-info">i</button><p class="info-tip" id="count-info" role="tooltip" hidden>Epicycles are circles traced by rotating Fourier vectors. Radius is amplitude, rotation rate is frequency, and starting angle is phase. More circles recover finer detail. The count is per chain in separate mode. <span id="budget">1 rotating vector, largest amplitudes first</span>.</p></div><div class="count-control"><button id="decrease" type="button" aria-label="Decrease epicycles by one">−</button><input id="count" type="range" min="1" max="${MAX_EPICYCLES}" value="1"><button id="increase" type="button" aria-label="Increase epicycles by one">+</button></div><div class="range-labels"><span>ABSTRACT</span><span>DETAILED</span></div>
 <div class="growth-controls"><div class="control-heading"><label><input id="grow" type="checkbox" checked> Build up epicycles</label><button class="info-button" type="button" aria-label="About building up epicycles" aria-expanded="false" aria-controls="grow-info">i</button><p class="info-tip" id="grow-info" role="tooltip" hidden>Build from one to ${MAX_EPICYCLES} epicycles. Quick early steps, then finer detail.</p></div></div>
 <label for="speed"><span>Drawing speed <output id="speed-value">1×</output></span></label><div class="count-control"><button id="slower" type="button" aria-label="Decrease drawing speed one notch">−</button><input id="speed" type="range" min="0.25" max="3" step="0.25" value="1"><button id="faster" type="button" aria-label="Increase drawing speed one notch">+</button></div>
@@ -31,10 +32,10 @@ $("#app").innerHTML =
 
 <label for="notation"><span>Equation notation</span></label><select id="notation"><option value="hidden">Hidden</option><option value="phase">Amplitude &amp; phase</option><option value="sine-cosine">Sine &amp; cosine coefficients</option></select>
 <div class="toggles"><label><input id="circles" type="checkbox" checked> Show epicycles</label><label><input id="fill" type="checkbox"> Fill map area</label><label><input id="guide" type="checkbox" checked> Reference outline</label><label><input id="glow" type="checkbox" checked> Highlight the drawing tip</label></div>
-<div class="actions"><button id="play" disabled>Ⅱ Pause</button><button id="reset" disabled aria-label="Restart drawing">↺ Restart</button></div>
-</aside><div class="drawing"><div class="canvas-heading"><span><span class="dot"></span> <span id="state">LOADING ATLAS</span></span><div class="canvas-tools"><span id="mode-label">COMPLEX SERIES</span><button id="share" type="button" disabled>Share view</button></div></div><div class="canvas-viewport"><div id="map-scale" class="map-scale" title="Nominal scale of the source map data; independent of screen zoom.">Map data · 1:10M</div><canvas aria-label="Animated country outline drawn by Fourier epicycles" role="img"></canvas></div><div class="canvas-footer"><a id="country-name" href="https://en.wikipedia.org/" target="_blank" rel="noreferrer" title="Read about this country on Wikipedia">—</a><span class="canvas-metrics"><span id="canvas-count">1 epicycle</span><span id="progress" title="Root-mean-square error across all 1,024 matching samples of the reconstructed and original outline, as a percentage of the outline’s bounding-box diagonal.">RMS error —</span><span id="distance-error" title="RMS great-circle distance across all 1,024 corresponding original and reconstructed samples on a spherical Earth. This is not a nearest-border distance.">≈ — km</span></span></div><section id="math-panel" class="math-panel" aria-label="Fourier equations and live values" hidden><p id="equation"></p><p class="math-units">Coordinates are normalized to the selected outline. t is measured in cycles.</p><output id="live-values"></output><details id="coefficients"><summary>Largest coefficients · amplitude, frequency &amp; phase</summary><div id="coefficient-table"></div></details></section><div id="error" role="alert" hidden></div></div></section>
+<div class="actions"><button id="play" disabled>${icon("pause")}<span>Pause</span></button><button id="reset" disabled aria-label="Restart drawing">${icon("restart")}<span>Restart</span></button></div>
+</aside><div class="drawing"><div class="canvas-heading"><span><span class="dot"></span> <span id="state">LOADING ATLAS</span></span><div class="canvas-tools"><span id="mode-label">COMPLEX SERIES</span><button id="share" type="button" disabled>Share view</button></div></div><div class="canvas-viewport"><div id="projection-label" class="projection-label" hidden>Polar view</div><canvas aria-label="Animated country outline drawn by Fourier epicycles" role="img"></canvas></div><div class="canvas-footer"><a id="country-name" href="https://en.wikipedia.org/" target="_blank" rel="noreferrer" title="Read about this country on Wikipedia">—</a><span class="canvas-metrics"><span id="canvas-count">1 epicycle</span><span id="progress" title="Root-mean-square error across all 1,024 matching samples of the reconstructed and original outline, as a percentage of the outline’s bounding-box diagonal.">RMS error —</span><span id="distance-error" title="RMS great-circle distance across all 1,024 corresponding original and reconstructed samples on a spherical Earth. This is not a nearest-border distance.">≈ — km</span></span></div><section id="math-panel" class="math-panel" aria-label="Fourier equations and live values" hidden><p id="equation"></p><p class="math-units">Coordinates are normalized to the selected outline. t is measured in cycles.</p><output id="live-values"></output><details id="coefficients"><summary>Largest coefficients · amplitude, frequency &amp; phase</summary><div id="coefficient-table"></div></details></section><div id="error" role="alert" hidden></div></div></section>
 <section class="notes"><div><span class="eyebrow">THE IDEA</span><h2>From a border to a wave.</h2><p>Sample an outline at equal distances. A discrete Fourier transform turns those points into rotating vectors. Add their tips together, and the border appears again.</p></div><div><span class="eyebrow">THE CIRCLES</span><h2>Small orbits. Fine details.</h2><p>Each epicycle has an amplitude (radius), frequency (rotation rate), and phase (starting angle). The largest amplitudes are drawn first. More circles recover finer details.</p></div><div><span class="eyebrow">TWO WAYS TO DRAW</span><h2>One plane, or two axes.</h2><p>The complex mode draws a single vector chain. Separate mode uses one chain for x and one for y; their crosshair locates the drawing tip. The circle count applies to each chain.</p></div></section></main>
-<footer><span class="footer-brand"><svg class="footer-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13"/><circle cx="16" cy="16" r="6"/></svg><span>BORDER / ORBIT <span class="muted">· A little mathematics, a whole world.</span></span></span><a class="repo-link" href="https://github.com/janilahti/fourier-map-contours" target="_blank" rel="noreferrer">Source and feedback on GitHub</a><span>Map data: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth</a> · <span id="data-scale">1:10M</span> · Public domain</span></footer>
+<footer><span class="footer-brand"><svg class="footer-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13"/><circle cx="16" cy="16" r="6"/></svg><span>BORDER / ORBIT <span class="muted">· A little mathematics, a whole world.</span></span></span><a class="repo-link" href="https://github.com/janilahti/fourier-map-contours" target="_blank" rel="noreferrer">Source and feedback on GitHub</a><span>Map data: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth</a> · Public domain</span></footer>
 <dialog id="share-dialog" aria-labelledby="share-title"><h2 id="share-title">Share this view</h2><p>The link keeps your country and settings. The drawing starts with a fresh trace.</p><label for="share-url">Link to this view</label><input id="share-url" type="url" readonly><div class="share-actions"><button id="copy-link" class="share-primary" type="button">Copy link</button><button id="native-share" type="button" hidden>Share…</button><form method="dialog"><button type="submit">Close</button></form></div><p id="share-status" role="status" aria-live="polite"></p></dialog>`;
 const canvas = $("canvas"),
   ctx = canvas.getContext("2d");
@@ -157,7 +158,6 @@ async function loadSelection({ startCount = 1 } = {}) {
   const continent = feature.properties.kind === "continent";
   let geometry = feature.geometry;
   $("#error").hidden = true;
-  let fallback = false;
   {
     $("#state").textContent = "LOADING OUTLINE";
     try {
@@ -183,7 +183,6 @@ async function loadSelection({ startCount = 1 } = {}) {
           "Continent unavailable. Showing Finland; select the continent again to retry.";
         return;
       }
-      fallback = true;
       if (!fallbackAtlas) {
         const response = await fetch(
           `${import.meta.env.BASE_URL}data/countries.geojson`,
@@ -211,13 +210,7 @@ async function loadSelection({ startCount = 1 } = {}) {
   complex = transform(points);
   xs = transform(points.map((p) => [p[0], 0]));
   ys = transform(points.map((p) => [p[1], 0]));
-  $("#data-scale").textContent = continent
-    ? "1:110M"
-    : fallback
-      ? "1:50M fallback"
-      : "1:10M";
-  $("#map-scale").textContent =
-    `Map data · ${$("#data-scale").textContent}${projection.kind === "south-polar" ? " · polar view" : ""}`;
+  $("#projection-label").hidden = projection.kind !== "south-polar";
   $("#country-name").textContent = feature.properties.name;
   $("#country-name").href = wikipediaUrl(feature.properties);
   $("#country-name").title =
@@ -570,7 +563,7 @@ syncSpeed();
 function setPlaying(value) {
   playing = value;
   loop.setRunning(playing && !!animation);
-  $("#play").textContent = playing ? "Ⅱ Pause" : "▶ Play";
+  $("#play").innerHTML = `${icon(playing ? "pause" : "play")}<span>${playing ? "Pause" : "Play"}</span>`;
   $("#state").textContent = playing ? "DRAWING THE WORLD" : "PAUSED";
 }
 $("#play").addEventListener("click", () => setPlaying(!playing));

@@ -44,7 +44,6 @@ write(
     region("Europe"),
     country("GBR"),
     country("IRL"),
-    country("ISL"),
   ),
 );
 write("AFRICA", clipping.union(region("Africa"), country("MDG")));
@@ -68,7 +67,7 @@ sources.continent_composition = {
     ],
     omit: ["Greenland"],
   },
-  Europe: { add: ["Great Britain", "Ireland", "Iceland"] },
+  Europe: { add: ["Great Britain", "Ireland"], omit: ["Iceland"] },
   Africa: { add: ["Madagascar"] },
 };
 save(new URL("sources.json", root), sources);

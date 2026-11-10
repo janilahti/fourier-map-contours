@@ -1226,7 +1226,7 @@ footer {
   --vector-x: #00ffff;
   --vector-y: #ffbfff;
 }
-.map-scale {
+.projection-label {
   position: absolute;
   top: 4px;
   left: var(--canvas-gutter);
@@ -1287,4 +1287,19 @@ footer {
   .drawing {
     --canvas-gutter: 20px;
   }
+}
+
+.button-icon {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  vertical-align: middle;
+}
+:is(#play, #reset, #random-country) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  line-height: 20px;
 }
