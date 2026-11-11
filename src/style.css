@@ -1323,3 +1323,120 @@ footer {
   flex-wrap: wrap;
   gap: 10px;
 }
+
+.info-paragraph {
+  display: block;
+}
+.info-paragraph + .info-paragraph {
+  margin-top: 8px;
+}
+.sound-panel {
+  margin-top: 20px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--paper);
+}
+.sound-panel > summary {
+  padding: 18px 22px;
+  cursor: pointer;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 500;
+}
+.sound-panel > summary span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.sound-content {
+  padding: 0 22px 22px;
+}
+#sound-source {
+  color: var(--ink);
+  font-size: 15px;
+}
+.sound-explanation,
+#sound-status {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.sound-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  align-items: end;
+}
+.sound-controls label {
+  display: block;
+  margin: 12px 0 8px;
+  font-size: 13px;
+  color: var(--ink);
+}
+.sound-controls input[type="range"] {
+  width: 100%;
+  min-height: 40px;
+}
+.sound-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+.sound-actions button {
+  padding: 9px 14px;
+}
+#sound-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 105px;
+  line-height: 20px;
+  background: var(--accent);
+  color: var(--paper);
+}
+.sound-tables {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.sound-table-wrap {
+  min-width: 0;
+  overflow-x: auto;
+}
+.sound-tables table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 270px;
+  color: var(--ink);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.sound-tables caption {
+  text-align: left;
+  margin: 12px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.sound-tables th,
+.sound-tables td {
+  border-bottom: 1px solid var(--border);
+  padding: 7px;
+  text-align: right;
+}
+.sound-tables th:first-child {
+  text-align: left;
+}
+@media (max-width: 740px) {
+  .sound-controls,
+  .sound-tables {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .sound-panel > summary {
+    padding: 16px;
+  }
+  .sound-content {
+    padding: 0 16px 16px;
+  }
+}
