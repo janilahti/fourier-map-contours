@@ -27,6 +27,7 @@ $("#app").innerHTML =
   `<main><section class="intro"><div class="intro-kicker"><span>GEOGRAPHY, IN FREQUENCY SPACE</span><span>AN INTERACTIVE FOURIER ATLAS</span></div><div class="intro-body"><h1>A world drawn<br>by <em>circles.</em></h1><p class="lede">Every coastline is a rhythm.<br> Watch rotating vectors reconstruct the<br> outline of a country, one orbit at a time.</p></div></section>
 <section class="studio"><aside><div class="panel-heading"><span class="eyebrow">THE INSTRUMENT</span><span class="dot"></span></div>
 <div class="control-heading"><label for="country">Country or continent</label><button class="info-button" type="button" aria-label="About country outlines" aria-expanded="false" aria-controls="country-info">i</button><p class="info-tip" id="country-info" role="tooltip" hidden>Only the largest connected outer region is animated. Substantial nearby parts can appear in the reference outline. This Fourier drawing follows one continuous, closed path; separate islands would require pen lifts or artificial connecting lines.</p></div><select id="country" disabled><option>Loading atlas…</option></select><button id="random-country" type="button" disabled title="Choose a random outline and build up epicycles">${icon("random")}<span>Surprise me</span></button>
+<div class="control-heading"><label for="projection">Map projection</label><button class="info-button" type="button" aria-label="About map projections" aria-expanded="false" aria-controls="projection-info">i</button><p class="info-tip" id="projection-info" role="tooltip" hidden>Local view adjusts for latitude and uses a polar view for Antarctica. Equal Earth preserves area, not angles or shape, and is recentered on each outline’s longitude. Both use the same Natural Earth borders.</p></div><select id="projection"><option value="local">Local / polar</option><option value="equal-earth">Equal Earth</option></select>
 <div class="control-heading"><label for="mode">Fourier representation</label><button class="info-button" type="button" aria-label="About Fourier representations" aria-expanded="false" aria-controls="mode-info">i</button><p class="info-tip" id="mode-info" role="tooltip" hidden>Complex mode treats x + iy as one signal and adds one chain of rotating vectors. Separate mode reconstructs x and y independently; their crosshair marks the drawing point.</p></div><select id="mode"><option value="complex">Complex plane · z(t) = x(t) + iy(t)</option><option value="separate" selected>Separate series · x(t) and y(t)</option></select>
 <div class="control-heading"><label for="count">Epicycles <output id="count-value">1</output></label><button class="info-button" type="button" aria-label="About epicycles" aria-expanded="false" aria-controls="count-info">i</button><p class="info-tip" id="count-info" role="tooltip" hidden>Epicycles are circles traced by rotating Fourier vectors. Radius is amplitude, rotation rate is frequency, and starting angle is phase. More circles recover finer detail. The count is per chain in separate mode. <span id="budget">1 rotating vector, largest amplitudes first</span>.</p></div><div class="count-control"><button id="decrease" type="button" aria-label="Decrease epicycles by one">−</button><input id="count" type="range" min="1" max="${MAX_EPICYCLES}" value="1"><button id="increase" type="button" aria-label="Increase epicycles by one">+</button></div><div class="range-labels"><span>ABSTRACT</span><span>DETAILED</span></div>
 <div class="growth-controls"><div class="control-heading"><label><input id="grow" type="checkbox" checked> Build up epicycles</label><button class="info-button" type="button" aria-label="About building up epicycles" aria-expanded="false" aria-controls="grow-info">i</button><p class="info-tip" id="grow-info" role="tooltip" hidden>Build from one to ${MAX_EPICYCLES} epicycles. Quick early steps, then finer detail.</p></div></div>
@@ -212,7 +213,10 @@ async function loadSelection({ startCount = 1 } = {}) {
     }
   }
   if (version !== selectionVersion) return;
-  const prepared = prepareGeometry(geometry, { continent });
+  const prepared = prepareGeometry(geometry, {
+    continent,
+    projection: val("#projection"),
+  });
   projection = prepared.projection;
   points = prepared.points;
   reference = prepared.reference;
@@ -224,7 +228,9 @@ async function loadSelection({ startCount = 1 } = {}) {
   xs = transform(points.map((p) => [p[0], 0]));
   ys = transform(points.map((p) => [p[1], 0]));
   $("#map-scale").textContent = sourceScale;
-  $("#projection-label").hidden = projection.kind !== "south-polar";
+  $("#projection-label").hidden = projection.kind === "equirectangular";
+  $("#projection-label").textContent =
+    projection.kind === "equal-earth" ? "Equal Earth" : "Polar view";
   $("#country-name").textContent = feature.properties.name;
   $("#country-name").href = wikipediaUrl(feature.properties);
   $("#country-name").title =
@@ -530,6 +536,9 @@ function render(now, motionScale = 1) {
   }
 }
 $("#country").addEventListener("change", choose);
+$("#projection").addEventListener("change", () =>
+  choose({ startCount: animation?.count ?? 1 }),
+);
 for (const id of ["#count", "#mode", "#direction"])
   $(id).addEventListener("input", () => {
     reset();
@@ -709,6 +718,7 @@ function currentSettings() {
   return {
     country: val("#country"),
     mode: val("#mode"),
+    projection: val("#projection"),
     count: animation?.count ?? +val("#count"),
     speed: +val("#speed"),
     reverse: $("#direction").checked,
@@ -864,6 +874,7 @@ async function loadAtlas() {
     $("#notation").value = restored.notation;
     $("#country").value = restored.country;
     $("#mode").value = restored.mode;
+    $("#projection").value = restored.projection;
     $("#count").value = restored.count;
     $("#speed").value = restored.speed;
     $("#palette").value = restored.palette;

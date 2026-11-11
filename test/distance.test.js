@@ -115,3 +115,41 @@ test("polar projection inversion preserves known coordinates and spherical recon
     assert.ok(Math.abs(m.kilometers - haversineKm([0, -90], [0, -80])) < 1e-8);
   }
 });
+
+test("Equal Earth reconstruction metrics invert the selected projection correctly", () => {
+  const prepared = prepareGeometry(
+    {
+      type: "Polygon",
+      coordinates: [
+        [
+          [24, 59],
+          [30, 59],
+          [30, 65],
+          [24, 65],
+          [24, 59],
+        ],
+      ],
+    },
+    { projection: "equal-earth" },
+  );
+  const corner = geographicPoint(prepared.reference[0], prepared.projection);
+  assert.ok(
+    Math.abs(corner[0] - 24) < 1e-10 && Math.abs(corner[1] - 59) < 1e-10,
+  );
+  const points = prepared.points.filter((_, i) => i % 16 === 0);
+  const series = {
+    c: transform(points),
+    x: transform(points.map((p) => [p[0], 0])),
+    y: transform(points.map((p) => [p[1], 0])),
+  };
+  for (const separate of [false, true]) {
+    const m = reconstructionMetrics(
+      points,
+      series,
+      separate,
+      prepared.projection,
+    );
+    assert.ok(m.percent < 1e-10);
+    assert.ok(m.kilometers < 1e-8);
+  }
+});

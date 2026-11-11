@@ -3,6 +3,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   country: "FIN",
   notation: "hidden",
   mode: "separate",
+  projection: "local",
   count: 1,
   speed: 1,
   reverse: false,
@@ -40,6 +41,8 @@ export function readSettings(search, countryIds, paletteIds) {
   if (countryIds.includes(country)) state.country = country;
   if (["complex", "separate"].includes(params.get("mode")))
     state.mode = params.get("mode");
+  if (["local", "equal-earth"].includes(params.get("projection")))
+    state.projection = params.get("projection");
   if (paletteIds.includes(params.get("palette")))
     state.palette = params.get("palette");
   if (["hidden", "phase", "sine-cosine"].includes(params.get("notation")))

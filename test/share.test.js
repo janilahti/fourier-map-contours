@@ -9,6 +9,7 @@ test("sharing round-trips every control and strips unrelated URL data", () => {
     notation: "sine-cosine",
     country: "JPN",
     mode: "complex",
+    projection: "equal-earth",
     count: 512,
     speed: 2.25,
     reverse: true,
@@ -89,5 +90,20 @@ test("retired highlight preferences cannot disable the permanent drawing tip", (
       "highlight",
     ),
     false,
+  );
+});
+
+test("projection links validate names and old links retain local projection", () => {
+  assert.equal(
+    readSettings("?projection=equal-earth", countries, palettes).projection,
+    "equal-earth",
+  );
+  assert.equal(
+    readSettings("?projection=unknown", countries, palettes).projection,
+    "local",
+  );
+  assert.equal(
+    readSettings("?country=FIN", countries, palettes).projection,
+    "local",
   );
 });

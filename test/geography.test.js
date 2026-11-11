@@ -224,7 +224,10 @@ test("Europe shows Great Britain and a united Ireland, with Iceland omitted", ()
       rings.every((r) => !contains(r, sea)),
       `sea remains sea: ${sea}`,
     );
-  assert.ok(rings.every((r) => !contains(r, [-19, 65])), "Iceland is omitted");
+  assert.ok(
+    rings.every((r) => !contains(r, [-19, 65])),
+    "Iceland is omitted",
+  );
   const ireland = rings.find((r) => contains(r, [-8, 53]));
   assert.ok(
     contains(ireland, [-6.7, 54.7]),
@@ -279,5 +282,48 @@ test("Crimea is connected to Ukraine's main outline at detailed and fallback sca
     assert.ok(
       polygons.every((polygon) => !contains(polygon[0], [34.1, 44.95])),
     );
+  }
+});
+
+test("every country and continent supports finite Equal Earth outlines with invertible source coordinates", () => {
+  const inputs = read("detailed/index.json").map((id) => [
+    id,
+    read(`detailed/${id}.json`),
+    false,
+  ]);
+  for (const feature of read("continents/index.json").features)
+    inputs.push([
+      feature.properties.id,
+      read(`continents/${feature.properties.id}.json`),
+      true,
+    ]);
+  for (const [id, geometry, continent] of inputs) {
+    const p = prepareGeometry(geometry, {
+      continent,
+      projection: "equal-earth",
+    });
+    assert.equal(p.projection.kind, "equal-earth");
+    assert.equal(p.points.length, 1024);
+    assert.ok(p.points.flat().every(Number.isFinite), id);
+    assert.ok(
+      p.reference
+        .map((v) => geographicPoint(v, p.projection))
+        .flat()
+        .every(Number.isFinite),
+      id,
+    );
+    if (id === "RUS") {
+      const ring = p.reference.map((v) => geographicPoint(v, p.projection));
+      assert.ok(
+        Math.max(...ring.map((v) => v[0])) > 190,
+        "Chukotka is retained beyond the date line",
+      );
+      assert.ok(
+        Math.max(...ring.map((v) => v[0])) -
+          Math.min(...ring.map((v) => v[0])) <
+          180,
+        "Russia has no projection seam across its main outline",
+      );
+    }
   }
 });

@@ -1,4 +1,5 @@
 import { area, projectRing, resample } from "./math.js";
+import { equalEarth, invertEqualEarth } from "./equal-earth.js";
 import polygonClipping from "polygon-clipping";
 
 function unwrap(ring, anchor) {
@@ -63,7 +64,10 @@ function polarProject(ring) {
   });
 }
 
-export function prepareGeometry(geometry, { continent = false } = {}) {
+export function prepareGeometry(
+  geometry,
+  { continent = false, projection: selectedProjection = "local" } = {},
+) {
   const input =
     geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
   const polar = input.some((p) => p[0].some((v) => v[1] < -89.9));
@@ -79,10 +83,40 @@ export function prepareGeometry(geometry, { continent = false } = {}) {
   const mainRaw = sorted[0].raw;
   const latitude = mainRaw.reduce((s, p) => s + p[1], 0) / mainRaw.length;
   const cos = polar ? 1 : Math.cos((latitude * Math.PI) / 180);
-  const main = initialProject(mainRaw);
+  const useEqualEarth = selectedProjection === "equal-earth";
+  const localMain = initialProject(mainRaw);
+  const unwrappedMain = useEqualEarth ? unwrap(mainRaw, mainRaw[0][0]) : null;
+  const centralLongitude =
+    polar || !useEqualEarth
+      ? 0
+      : (Math.min(...unwrappedMain.map((p) => p[0])) +
+          Math.max(...unwrappedMain.map((p) => p[0]))) /
+        2;
+  const equalProject = (ring) => {
+    const unwrapped = unwrap(ring, centralLongitude),
+      result = [];
+    for (let i = 0; i < unwrapped.length; i++) {
+      const p = unwrapped[i],
+        q = unwrapped[Math.min(i + 1, unwrapped.length - 1)];
+      const steps = Math.max(
+        1,
+        Math.ceil(Math.max(Math.abs(q[0] - p[0]), Math.abs(q[1] - p[1]))),
+      );
+      for (let j = 0; j < steps; j++) {
+        const t = j / steps;
+        const projected = equalEarth([
+          p[0] + t * (q[0] - p[0]) - centralLongitude,
+          p[1] + t * (q[1] - p[1]),
+        ]);
+        result.push([projected[0], -projected[1]]);
+      }
+    }
+    return result;
+  };
+  const main = useEqualEarth ? equalProject(mainRaw) : localMain;
   const anchor = polar
     ? 0
-    : main.reduce((s, p) => s + p[0] / cos, 0) / main.length;
+    : localMain.reduce((s, p) => s + p[0] / cos, 0) / localMain.length;
   const samples = resample(main, 1024, { normalize: false });
   const center = samples.reduce(
     (a, p) => [a[0] + p[0] / samples.length, a[1] + p[1] / samples.length],
@@ -106,9 +140,11 @@ export function prepareGeometry(geometry, { continent = false } = {}) {
   ];
   const bounds = bbox(main),
     diagonal = Math.hypot(bounds[2] - bounds[0], bounds[3] - bounds[1]);
-  const project = polar
-    ? polarProject
-    : (ring) => unwrap(ring, anchor).map(([lon, lat]) => [lon * cos, -lat]);
+  const project = useEqualEarth
+    ? equalProject
+    : polar
+      ? polarProject
+      : (ring) => unwrap(ring, anchor).map(([lon, lat]) => [lon * cos, -lat]);
   const fillPolygons = [
     [
       main.map(normalize),
@@ -136,7 +172,12 @@ export function prepareGeometry(geometry, { continent = false } = {}) {
   }
   return {
     projection: {
-      kind: polar ? "south-polar" : "equirectangular",
+      kind: useEqualEarth
+        ? "equal-earth"
+        : polar
+          ? "south-polar"
+          : "equirectangular",
+      centralLongitude,
       cos,
       center,
       size,
@@ -151,6 +192,10 @@ export function prepareGeometry(geometry, { continent = false } = {}) {
 export function geographicPoint(point, projection) {
   const x = point[0] * projection.size + projection.center[0];
   const y = point[1] * projection.size + projection.center[1];
+  if (projection.kind === "equal-earth") {
+    const [longitude, latitude] = invertEqualEarth([x, -y]);
+    return [longitude + projection.centralLongitude, latitude];
+  }
   if (projection.kind === "south-polar")
     return [(Math.atan2(x, -y) * 180) / Math.PI, Math.hypot(x, y) - 90];
   return [x / projection.cos, -y];
