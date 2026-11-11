@@ -1226,14 +1226,23 @@ footer {
   --vector-x: #00ffff;
   --vector-y: #ffbfff;
 }
+.drawing-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: 12px;
+  row-gap: 6px;
+}
+.playback-status {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
 .projection-label {
-  position: absolute;
-  top: 4px;
-  left: var(--canvas-gutter);
-  z-index: 1;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--canvas-muted);
-  pointer-events: none;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 #position-value {
   display: inline-grid;
@@ -1305,7 +1314,6 @@ footer {
 }
 
 #map-scale {
-  margin-left: 14px;
   color: var(--canvas-muted);
   white-space: nowrap;
   font-size: 11px;
